@@ -65,7 +65,7 @@ class MarketContext():
     """
     Market context for RL-Training.
     """
-    def __init__(self, n_market_states=10):
+    def __init__(self, n_market_states=1):
         self.n_states = n_market_states
         self.market_state_list = []
         self.market_context = np.array([])

@@ -1,6 +1,3 @@
-# !/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
 import numpy as np
 from collections import deque
 import tensorflow as tf
@@ -10,7 +7,7 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.regularizers import l2
 from random import sample
 
-class Model:
+class DDQNModel:
     """
     Class contains model for Double Deep Q Learning.
     - Build model
@@ -64,6 +61,7 @@ class Model:
 
         self.train = True
 
+    # TODO: Use tf.keras.Model API
     def build_model(self, trainable=True):
         layers = []
         n = len(self.architecture)
@@ -83,10 +81,7 @@ class Model:
                       optimizer=Adam(lr=self.learning_rate))
         return model
 
-    def update_target(self):
-        self.target_network.set_weights(self.online_network.get_weights())
-
-    # epsilon_greedy_poliy returns the action given the state
+    # returns the action given the state
     def epsilon_greedy_policy(self, state):
         self.total_steps += 1
         if np.random.rand() <= self.epsilon:  # exploration
@@ -98,7 +93,6 @@ class Model:
         return np.argmax(q, axis=1).squeeze()
 
     def memorize_transition(self, s, a, r, s_prime, not_done):
-
         if not_done:
             self.episode_reward += r
             self.episode_length += 1
@@ -117,6 +111,9 @@ class Model:
 
         # everything is stored in experience for experience replay
         self.experience.append((s, a, r, s_prime, not_done))
+        
+    def update_target(self):
+        self.target_network.set_weights(self.online_network.get_weights())
 
     def experience_replay(self):
         if self.batch_size > len(self.experience):
@@ -132,6 +129,8 @@ class Model:
 
         targets = rewards + not_done * self.gamma * target_q_values
 
+        # test to astype array: (das scheint tatsächlich das Problem gelöst zu haben)
+        states = states.astype('float64')
         q_values = self.online_network.predict_on_batch(states)
         q_values[[self.idx, actions]] = targets
 
