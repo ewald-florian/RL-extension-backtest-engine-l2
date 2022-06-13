@@ -726,9 +726,10 @@ class Backtest:
             # in either case, update index
             episode_index = episode_index + 1
 
+            #TODO: Fix status flag
             # update counter only if episode has been successfully run
-            if status:
-                episode_counter = episode_counter + 1
+            # if status:
+            episode_counter = episode_counter + 1
 
     def run_episode_broadcast(self, 
         identifier_list:list,
