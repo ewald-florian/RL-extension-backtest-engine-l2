@@ -1,9 +1,16 @@
+# TODO: global timestamp und logger fixen(?)
+# TODO: Backtest input variablen logik
+# TODO: Mit SimpleTradingenvironment Logik testen
+
+# TODO: Main Bug von v3: print(self.agent) funktioniert nicht (timestamp = None, exposure = 0 etc.
+
 # use relative imports for other modules
 from env.market import MarketState, Order, Trade
 # import Episode class
 from env.replay import Episode
+# Note: Agent cannot be imported -> circular import
 # import RLAgent to instantiate backtest
-from rlagent.rlagent import RLAgent
+# from rlagent.rlagent import RLAgent
 
 # general imports
 import copy
@@ -16,32 +23,20 @@ import random
 random.seed(42)
 import time
 
-SOURCE_DIRECTORY = "/Users/florianewald/PycharmProjects/l2-backtest-engine-v2X/efn2_backtesting"
-DATETIME = "TIMESTAMP_UTC"
-
 
 # copy backtest class from replay (development of rl env)
 class Backtest:
+    """
+    Gym Environment for Backtest Engine.
+    """
     timestamp_global = None
 
     def __init__(self,
                  agent,  # backtest is wrapper for trading agent
                  ):
-        """
-        Backtest wrapper that is used to evaluate a trading agent on one or
-        multiple episodes of historical market data.
-
-        Note that the original _agent is used only to derive a fresh copy with
-        each additional episode.
-
-        :param agent:
-            Agent, trading agent instance that is to be evaluated
-        """
 
         # from arguments
         self._agent = agent
-
-        # TODO: ...
         self.result_list = []
 
         # traingenv development:
@@ -49,8 +44,6 @@ class Backtest:
         self.episode_counter = 0
         self.episode_index = 0
         self.display_interval=10
-
-        # market/agent step ---
 
     def _market_step(self, market_id, book_update, trade_update):
         """
@@ -159,38 +152,45 @@ class Backtest:
 
         # convert episode to list to make it subscriptable for step method
         self.episode_list = list(self.episode)
+        # set step_counter to 0 (for new episode)
+        self.step_counter = 0
 
-    # perspektivisch die step funktion (ohne loop)
-    def run_episode_steps(self): # perspektivisch die step funktion (ohne loop)
-        # TODO: Was genau ist update_store?
-        for step, update_store in enumerate(self.episode, start=1):
+    # from original run method
+    def run_episode_steps(self):
+
+        episode = self.episode
+
+        for step, update_store in enumerate(episode, start=1):
 
             # update global timestamp
-            self.__class__.timestamp_global = self.episode.timestamp
+            self.__class__.timestamp_global = episode.timestamp
 
-            # update book_state, match standing orders
-            self._market_step(market_id=self.market_id,
-                                book_update=update_store.get(f"{self.market_id}.BOOK"),
-                                trade_update=update_store.get(f"{self.market_id}.TRADES", pd.Series([None] * 3)),
-                                # optional, default to empty pd.Series
-                                )
+            # ...
+            market_list = set(identifier.split(".")[0] for identifier in update_store)
+            source_list = list(update_store)
 
-            # TODO: How to handle the buffer Phase in the RL env?
+            # step 1: update book_state -> based on original data
+            # step 2: match standing orders -> based on pre-trade state
+            for market_id in market_list:
+                self._market_step(market_id=market_id,
+                                  book_update=update_store.get(f"{market_id}.BOOK"),
+                                  trade_update=update_store.get(f"{market_id}.TRADES", pd.Series([None] * 3)),
+                                  # optional, default to empty pd.Series
+                                  )
+
             # during the buffer phase, do not inform agent about update
-            if self.episode.episode_buffering:
+            if episode.episode_buffering:
                 continue
 
             # step 3: inform agent -> based on original data
-            source_list = list(update_store)
-            # there is only one source ID
-            source_id = source_list[0]
-            self._agent_step(source_id=source_id,
+            for source_id in source_list:
+                self._agent_step(source_id=source_id,
                                  either_update=update_store.get(source_id),
-                                 timestamp=self.episode.timestamp,
-                                 timestamp_next=self.episode.timestamp_next,
+                                 timestamp=episode.timestamp,
+                                 timestamp_next=episode.timestamp_next,
                                  )
 
-            # report the current state of the agent
+            # finally, report the current state of the agent
             if not (step % self.display_interval):
                 print(self.agent)
 
@@ -202,12 +202,13 @@ class Backtest:
     # TODO
     def step(self): # based on run_episode_steps but without internal loop
         # use self.episode_list instead of self.episode (list is subscriptable)
-        step = 0
-        update_store = self.episode_list[step]
+        self.step_counter += 1 # go to next step
+        update_store = self.episode_list[self.step_counter]
         #for step, update_store in enumerate(self.episode, start=1):
         #    update_store
 
-        # update global timestamp
+        #TODO: update global timestamp (bug fix)
+        # E.g. get timestamp from update_store?
         self.__class__.timestamp_global = self.episode.timestamp
 
         # update book_state, match standing orders
@@ -233,14 +234,14 @@ class Backtest:
                                  )
 
         # report the current state of the agent
-        if not (step % self.display_interval):
-            print(self.agent)
+        #if not (self.step_counter % self.display_interval):
+        print(self.agent)
+        print("STEP NUMBER: ", self.step_counter)
 
-    #def run_episode_generator(self,
     def generate_episode_start_list(self,
                               identifier_list: list = ["Adidas.BOOK", "Adidas.TRADES"],
                               date_start: str = "2021-01-04",
-                              date_end: str = "2021-01-04",
+                              date_end: str = "2021-01-08",
                               episode_interval: int = 30,  # timestamp quantization
                               episode_shuffle: bool = True,
                               episode_buffer: int = 5,
@@ -260,7 +261,7 @@ class Backtest:
         self.episode_length = episode_length
         self.num_episodes = num_episodes
 
-        #TODO: We hacve only a single market ID, adjust all methods
+        #TODO: We have only a single market ID, adjust, all methods
         self.market_id = self.identifier_list[0].split('.')[0]
 
         # pd.Timestamp
@@ -294,45 +295,30 @@ class Backtest:
         self.episode_start_list = episode_start_list
 
 
-    def run_episodes(self):
+    def run_all_episodes(self):
         """
         Iterates over all Episodes in episode_start_list and calls the run method.
         """
         # set episode_counter and index to 0
-        episode_counter = 0
-        episode_index = 0
+        self.episode_counter = 0
+        self.episode_index = 0
         # take next episode until ...
-        while episode_counter < min(len(self.episode_start_list), self.num_episodes):
+        while self.episode_counter < min(len(self.episode_start_list), self.num_episodes):
             # call run method to iterate over steps in Episode
 
             # reset_before_run (the reset part of the run method)
-            self.reset_before_run(identifier_list=self.identifier_list,
-                     episode_start_buffer=self.episode_start_list[episode_index],
-                     episode_start=self.episode_start_list[episode_index] + pd.Timedelta(self.episode_buffer, "min"),
-                     episode_end=self.episode_start_list[episode_index] + pd.Timedelta(self.episode_length, "min"),
-                     )
+            self.reset_before_run()
+            #self.original_run_reset()
+            #self.original_run_loop()
             # the run part of the run method
             self.run_episode_steps()
 
             # update
-            episode_index = episode_index + 1
+            self.episode_index = self.episode_index + 1
             # TODO: Fix status flag (if episdode coulod not be build)
-            episode_counter = episode_counter + 1
+            self.episode_counter = self.episode_counter + 1
 
 
-# Testing
-identifier_list = ["Adidas.BOOK", "Adidas.TRADES"]
-
-agent = RLAgent(
-    name="RLAgent",
-    quantity=100
-    )
-
-# Instantiate RLBacktest here
-backtest = Backtest(agent=agent)
-backtest.generate_episode_start_list() # with default config
-backtest.reset_before_run()
-backtest.step()
 
 
 
