@@ -7,6 +7,10 @@ scaler = MinMaxScaler()
 
 #TODO: Implement AgentState
 class AgentState(BaseAgent):
+    # einzelne datenstruktur mit einzelner methode, zB update oder nur datenstruktur
+    # pnl etc direkt im base agent oder in seperater metric class
+
+    # AgentState: update einen array mit orders und trades (standing orders (ACTIVE), offener positionen
 
     def __init__(self):
 
@@ -40,7 +44,7 @@ class AgentState(BaseAgent):
         pass
 
 #TODO: Implement AgentContext
-class AgentContext(AgentState):
+class AgentContext(): # keine vererbung notwendig, observer pattern?
     """
     Manage agent context.
     """
@@ -102,7 +106,7 @@ class MarketContext():
         self.market_state = np.array([])
 
 #TODO: Implement ObservationFilter
-class ObservationFilter():
+class ObservationFilter(): # Space
     """
     Take market state and agent state as input and return
     observation in a format that fits the NN model as input.
@@ -117,8 +121,6 @@ class ObservationFilter():
         """
 
         self.market_obs = market_context
-
-
 
     def create_agent_observation(self):
         """
