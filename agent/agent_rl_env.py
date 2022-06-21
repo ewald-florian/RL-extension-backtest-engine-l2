@@ -1,19 +1,21 @@
-# !/usr/bin/env python3
-# -*- coding: utf-8 -*-
+"""
+Identical to env.agent but uses TradingEnvironment instead of Backtest.
+"""
 
-# use relative imports for other modules 
+# use relative imports for other modules
 from env.market import MarketState, Order, Trade
 # use rl replay
-#from env.rlreplay import Backtest # use timestamp_global
-from gym_linkage.tradingenv_v4 import Backtest
+# from env.rlreplay import Backtest # use timestamp_global
+#from gym_linkage.tradingenv_v4 import Backtest
 # TODO: TradingEnvironment in agent
-#from gym_linkage.tradingenv_v4 import TradingEnvironment
-#from env.replay import Backtest # use timestamp_global
+from gym_linkage.tradingenv_v4 import TradingEnvironment
+# from env.replay import Backtest # use timestamp_global
 
 # general imports
 import abc
 import pandas as pd
 import textwrap
+
 
 class BaseAgent(abc.ABC):
 
@@ -28,9 +30,9 @@ class BaseAgent(abc.ABC):
 
         # agent has market access via market_interface instance
         self.market_interface = MarketInterface(
-            exposure_limit=1e6, # ...
-            latency=10, # in us (microseconds) 
-            transaction_cost_factor=1e-3, # 10 bps
+            exposure_limit=1e6,  # ...
+            latency=10,  # in us (microseconds)
+            transaction_cost_factor=1e-3,  # 10 bps
         )
 
         # ...
@@ -39,7 +41,7 @@ class BaseAgent(abc.ABC):
     # event management ---
 
     @abc.abstractmethod
-    def on_quote(self, market_id:str, book_state:pd.Series):
+    def on_quote(self, market_id: str, book_state: pd.Series):
         """
         This method is called after a new quote.
 
@@ -52,7 +54,7 @@ class BaseAgent(abc.ABC):
         raise NotImplementedError("To be implemented in subclass.")
 
     @abc.abstractmethod
-    def on_trade(self, market_id:str, trade_state:pd.Series):
+    def on_trade(self, market_id: str, trade_state: pd.Series):
         """
         This method is called after a new trade.
 
@@ -65,7 +67,7 @@ class BaseAgent(abc.ABC):
         raise NotImplementedError("To be implemented in subclass.")
 
     @abc.abstractmethod
-    def on_time(self, timestamp:pd.Timestamp, timestamp_next:pd.Timestamp):
+    def on_time(self, timestamp: pd.Timestamp, timestamp_next: pd.Timestamp):
         """
         This method is called with every iteration and provides the timestamps
         for both current and next iteration. The given interval may be used to
@@ -86,7 +88,7 @@ class BaseAgent(abc.ABC):
 
         # read global timestamp from Backtest class attribute
         # TODO:...
-        timestamp_global = Backtest.timestamp_global
+        timestamp_global = TradingEnvironment.timestamp_global
 
         # string representation
         string = f"""
@@ -103,29 +105,30 @@ class BaseAgent(abc.ABC):
 
     def reset(self):
         """
-        Reset agent. 
+        Reset agent.
         """
 
         # ...
         return self.__init__(self.name)
 
-class MarketInterface: 
+
+class MarketInterface:
 
     def __init__(self,
-        exposure_limit:float=1e6,
-        latency:int=10, # in us (microseconds) 
-        transaction_cost_factor:float=1e-3, # 10 bps
-    ):
+                 exposure_limit: float = 1e6,
+                 latency: int = 10,  # in us (microseconds)
+                 transaction_cost_factor: float = 1e-3,  # 10 bps
+                 ):
         """
-        The market interface is used to interact with the market, that is, 
+        The market interface is used to interact with the market, that is,
         using the following methods ...
 
         - `submit_order`: ...
         - `cancel_order`: ...
         - `get_filtered_orders`: ...
         - `get_filtered_trades`: ...
-        
-        ... to submit and cancel specific orders. 
+
+        ... to submit and cancel specific orders.
 
         :param latency:
             int, latency before order submission (in us), default is 10
@@ -139,9 +142,9 @@ class MarketInterface:
         self.trade_list = Trade.history
 
         # settings
-        self.exposure_limit = exposure_limit # ...
-        self.latency = latency # in microseconds ("U"), used only in submit method
-        self.transaction_cost_factor = transaction_cost_factor # in bps
+        self.exposure_limit = exposure_limit  # ...
+        self.latency = latency  # in microseconds ("U"), used only in submit method
+        self.transaction_cost_factor = transaction_cost_factor  # in bps
 
     # order management ---
 
@@ -166,7 +169,7 @@ class MarketInterface:
 
         # submit order
         order = Order(
-            timestamp=Backtest.timestamp_global + pd.Timedelta(self.latency, "us"), # microseconds
+            timestamp=TradingEnvironment.timestamp_global + pd.Timedelta(self.latency, "us"),  # microseconds
             market_id=market_id,
             side=side,
             quantity=quantity,
@@ -208,7 +211,7 @@ class MarketInterface:
             exposure_change = quantity * self.market_state_list[market_id].mid_point
 
         # ...
-        exposure_test = self.exposure.copy() # isolate changes
+        exposure_test = self.exposure.copy()  # isolate changes
         exposure_test[market_id] = self.exposure[market_id] + exposure_change * {
             "buy": + 1, "sell": - 1,
         }[side]
@@ -292,7 +295,7 @@ class MarketInterface:
         """
 
         for market_id, _ in self.market_state_list.items():
-            
+
             # trades filtered per market
             trades_buy = self.get_filtered_trades(market_id, side="buy")
             trades_sell = self.get_filtered_trades(market_id, side="sell")
@@ -343,7 +346,7 @@ class MarketInterface:
         :return pnl_realized:
             dict, {<market_id>: <pnl_realized>, *}
         """
-        
+
         for market_id, _ in self.market_state_list.items():
 
             # trades filtered per market
@@ -405,7 +408,7 @@ class MarketInterface:
 
             # case 1: buy side surplus
             if quantity_unreal > 0:
-                vwap_buy = sum(t.quantity * t.price for t in trades_buy) / quantity_buy 
+                vwap_buy = sum(t.quantity * t.price for t in trades_buy) / quantity_buy
                 result_market = abs(quantity_unreal) * (market.best_bid - vwap_buy)
             # case 2: sell side surplus
             elif quantity_unreal < 0:

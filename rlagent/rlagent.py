@@ -1,11 +1,14 @@
-from agent.agent import BaseAgent
+
+# from agent.agent import BaseAgent
+from agent.agent_rl_env import BaseAgent
 # Import backtest from rlreplay (rl-adapted version of replay)
-from env.rlreplay import Backtest # also needs to be imported in agent.py
+#from env.rlreplay import Backtest # also needs to be imported in agent.py
 #from env.replay import Backtest
 import datetime
 
 # RL imports
-from context.context import MarketContext, ObservationFilter
+# TODO: import correct RL agent version into context
+#from context.context import MarketContext, ObservationFilter
 import warnings
 warnings.filterwarnings('ignore')
 import numpy as np
@@ -30,7 +33,7 @@ class RLAgent(BaseAgent):
         self.end_time = datetime.time(16, 15)
         self.market_interface.transaction_cost_factor = 0
 
-        self.context = MarketContext()
+        #self.context = MarketContext()
         # TODO: What is the best way to connect to tradingenv?
         # self.env = TradingEnvironment()
 
@@ -67,7 +70,18 @@ class RLAgent(BaseAgent):
         # oder zscore mit 5 tagen
 
         # ACTION
+        # include trading for testing
         action = np.random.randint(0, 2)
+        if action == 0:
+            self.market_interface.submit_order(market_id, "sell", self.quantity)
+
+        # action == 2: submit market buy order
+        elif action == 2:
+            self.market_interface.submit_order(market_id, "buy", self.quantity)
+
+        # action == 1: wait
+        else:
+            pass
 
         # DONE (Problem: Done is not necessary in our env...)
         done = 0
@@ -109,30 +123,6 @@ class RLAgent(BaseAgent):
     def on_time(self, timestamp: pd.Timestamp, timestamp_next: pd.Timestamp):
         pass
 
-
-# run agent
-if __name__ == "__main__":
-
-    identifier_list = ["Adidas.BOOK", "Adidas.TRADES"]
-
-    agent = RLAgent(
-        name="RLAgent",
-        quantity=100
-    )
-
-    # Instantiate RLBacktest here
-    backtest = Backtest(agent=agent)
-
-    # generate episodes with the same episode_buffer and episode_length
-    backtest.run_episode_generator(identifier_list=identifier_list,
-                                   date_start="2021-01-04",  # start date after which episodes are generated
-                                   date_end="2021-01-08",  # end date before which episodes are generated
-                                   episode_interval=10,  # start intervals: e.g. 30 -> one starting point every 30 mins
-                                   episode_shuffle=True,
-                                   episode_buffer=5, #
-                                   episode_length=10, # min
-                                   num_episodes=5,
-                                   )
 
 
 

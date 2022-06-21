@@ -429,6 +429,7 @@ class Episode:
 
             # ...
             yield update
+            #return update
         
         # time
         time_end = time.time()
@@ -822,5 +823,3 @@ class Backtest:
                 episode_start=pd.Timestamp(episode_start), 
                 episode_end=pd.Timestamp(episode_end), 
             )
-
-
