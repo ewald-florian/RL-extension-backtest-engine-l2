@@ -5,9 +5,6 @@ IN ORDER TO USE:
 -> Import correct version into base agent (e.g. rl_agent_env)
 -> Base Agent / Market Interface has to use the correct version of TradingEnvironment etc.
 """
-
-
-
 # TODO: Backtest input variablen logik
 # TODO: Mit SimpleTradingEnvironment Logik testen
 

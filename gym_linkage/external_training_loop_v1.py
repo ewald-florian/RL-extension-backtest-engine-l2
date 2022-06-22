@@ -3,6 +3,9 @@
 from gym_linkage.tradingenv_v6 import TradingEnvironment  # wichtig: gleicher import wie bei base agent!
 from rlagent.rlagent import RLAgent
 
+
+# TODO: Action einbinden
+# TODO: DDQN einbinden
 agent = RLAgent(
     name="RLAgent",
     quantity=100)
