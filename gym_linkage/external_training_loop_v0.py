@@ -11,24 +11,21 @@ env = TradingEnvironment(agent=agent)
 # generate episode start list
 env.generate_episode_start_list()
 
-# External Training Loop
+# EXTERNAL TRAINING LOOP
 
-num_episodes = env.num_episodes # evtl nicht die tatsächlichen episoden sondern nur die "gewünschten"
-# needed to build the correct episode
-episode_counter = 0 # I could manipulate the internal index: env.episode_counter = 0
-episode_index = 0 # I could manipulate the internal index: env.episode_index = 0
+num_episodes = env.num_episodes # evtl nicht die tatsächlichen episoden sondern nur die "gewünschten" wenn eine episode nicht gebaut werden kann...
+
 
 for episode in range(num_episodes):
     # call reset before run (reset env and build new episode)
     env.reset_before_run()
     print(episode)
-    episode_counter += 1
     # the episode lengths can vary
     current_episode_length = env.current_episode_length
 
-    for step in range(current_episode_length+10):
+    #for step in range(current_episode_length:
         # take step
-        env.step()
+        #env.step()
 
 """
 env.reset_before_run()

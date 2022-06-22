@@ -73,7 +73,7 @@ class TradingEnvironment(gym.Env):
                                             np.ones(40))
         # self.reset()
 
-    # TODO: Theoretically, I could also call these methods from the original Backtest class
+    # TODO: Theoretically, could I also call these methods from the original Backtest class?
     def _market_step(self, market_id, book_update, trade_update):
         """
         Update post-trade market state and match standing orders against
@@ -123,12 +123,11 @@ class TradingEnvironment(gym.Env):
         # If the run_all_episodes() is not used (because now,
         # they are managed inside run_all_episodes.
 
-        episode_counter = 0
-        episode_index = 0
 
-        episode_start_buffer = self.episode_start_list[self.episode_index]
-        episode_start = self.episode_start_list[self.episode_index] + pd.Timedelta(self.episode_buffer, "min")
-        episode_end = self.episode_start_list[self.episode_index] + pd.Timedelta(self.episode_length, "min")
+        # Note: episode index is set to 0 in generate_episode_list and then 1 is added after every episode
+        episode_start_buffer = self.episode_start_list[self.episode_counter]
+        episode_start = self.episode_start_list[self.episode_counter] + pd.Timedelta(self.episode_buffer, "min")
+        episode_end = self.episode_start_list[self.episode_counter] + pd.Timedelta(self.episode_length, "min")
 
         # try to build episode based on the specified parameters
         try:
@@ -164,58 +163,16 @@ class TradingEnvironment(gym.Env):
         # TODO: market_id logik... für nur ein asset
         MarketState(self.market_id)
 
-    # from original run method
-    def run_episode_steps(self):
-        """
-        Run Over all steps of a given episode,
-        based on original run() method from Backtest class.
-        Maybe this can be useful, however it is mostlx for testing
-        purposes.
-        """
-        episode = self.episode
+        # Adds 1 to episode_counter after each Episode
+        self.episode_counter += 1
+        # TODO: episode_index if Bedingung (nur wenn Episode erfolgreich gebaut werden konnte...)
+        # in reset before run?
+        self.episode_index += 1
 
-        for step, update_store in enumerate(episode, start=1):
+        # print (note that this actually prints the "next" episode...
+        print('(ENV) EPISODE COUNTER:', self.episode_counter)
 
-            # update global timestamp
-            self.__class__.timestamp_global = episode.timestamp
-
-
-            # ...
-            market_list = set(identifier.split(".")[0] for identifier in update_store)
-            source_list = list(update_store)
-
-            # step 1: update book_state -> based on original data
-            # step 2: match standing orders -> based on pre-trade state
-            for market_id in market_list:
-                self._market_step(market_id=market_id,
-                                  book_update=update_store.get(f"{market_id}.BOOK"),
-                                  trade_update=update_store.get(f"{market_id}.TRADES", pd.Series([None] * 3)),
-                                  # optional, default to empty pd.Series
-                                  )
-
-            # during the buffer phase, do not inform agent about update
-            if episode.episode_buffering:
-                continue
-
-            # step 3: inform agent -> based on original data
-            for source_id in source_list:
-                self._agent_step(source_id=source_id,
-                                 either_update=update_store.get(source_id),
-                                 timestamp=episode.timestamp,
-                                 timestamp_next=episode.timestamp_next,
-                                 )
-
-            # finally, report the current state of the agent
-            if not (step % self.display_interval):
-                print(self.agent)
-
-        # TODO: Report and store Results (e.g. PnLs)
-        # TODO: das muss eigentlich in die run_episodes Klasse
-        result = None
-        self.result_list.append(result)
-
-    # TODO: Central Method for tradingenv
-    def step(self):
+    def take_step(self):
 
         self.step_counter += 1 # go to next step
         print('(ENV) STEP COUNTER:', self.step_counter)
@@ -288,7 +245,17 @@ class TradingEnvironment(gym.Env):
         # store episode start list as class instance for other methods (run_all_episodes)
         self.episode_start_list = episode_start_list
 
+        # set episode counter ane episode index to 0:
+        # set episode_counter and index to 0
+        # Note: this is a logical place to do this because generate_episode_start_list
+        # will always be called before any type of iteration loop over episodes starts
+        # no matter if it is internal or external (and it cannot be done in reset_before_run)
+        self.episode_counter = 0
+        #TODO: episode_index if Bedingung (nur wenn Episode erfolgreich gebaut werden konnte...)
+        # in reset before run?
+        self.episode_index = 0
 
+    # Just for development, can be discarded later...
     def run_all_episodes(self):
         """
         Iterates over all Episodes in episode_start_list and calls the run method.
