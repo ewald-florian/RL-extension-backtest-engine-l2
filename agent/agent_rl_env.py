@@ -8,8 +8,10 @@ from env.market import MarketState, Order, Trade
 # from env.rlreplay import Backtest # use timestamp_global
 #from gym_linkage.tradingenv_v4 import Backtest
 # TODO: TradingEnvironment in agent
-from gym_linkage.tradingenv_v4 import TradingEnvironment
+#from gym_linkage.tradingenv_v5 import TradingEnvironment
 # from env.replay import Backtest # use timestamp_global
+
+from gym_linkage.tradingenv_v6 import TradingSimulator
 
 # general imports
 import abc
@@ -88,7 +90,7 @@ class BaseAgent(abc.ABC):
 
         # read global timestamp from Backtest class attribute
         # TODO:...
-        timestamp_global = TradingEnvironment.timestamp_global
+        timestamp_global = TradingSimulator.timestamp_global
 
         # string representation
         string = f"""
@@ -169,7 +171,7 @@ class MarketInterface:
 
         # submit order
         order = Order(
-            timestamp=TradingEnvironment.timestamp_global + pd.Timedelta(self.latency, "us"),  # microseconds
+            timestamp=TradingSimulator.timestamp_global + pd.Timedelta(self.latency, "us"),  # microseconds
             market_id=market_id,
             side=side,
             quantity=quantity,

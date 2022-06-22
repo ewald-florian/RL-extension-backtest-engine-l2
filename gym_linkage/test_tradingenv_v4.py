@@ -1,4 +1,4 @@
-from gym_linkage.tradingenv_v4 import TradingEnvironment # wichtig: gleicher import wie bei base agent!
+from gym_linkage.tradingenv_v5 import TradingEnvironment # wichtig: gleicher import wie bei base agent!
 from rlagent.rlagent import RLAgent
 
 identifier_list = ["Adidas.BOOK", "Adidas.TRADES"]

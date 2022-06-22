@@ -4,8 +4,8 @@
 # use relative imports for other modules 
 from env.market import MarketState, Order, Trade
 # use rl replay
-#from env.rlreplay import Backtest # use timestamp_global
-from gym_linkage.tradingenv_v4 import Backtest
+from env.rlreplay import Backtest # use timestamp_global
+# from gym_linkage.tradingenv_v4 import Backtest
 # TODO: TradingEnvironment in agent
 #from gym_linkage.tradingenv_v4 import TradingEnvironment
 #from env.replay import Backtest # use timestamp_global

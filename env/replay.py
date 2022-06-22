@@ -582,6 +582,7 @@ class Backtest:
         # create market_state instances
         for market_id in identifier_list:
             _ = MarketState(market_id)
+            print(_.instances)
 
         # iterate over episode ---
 
@@ -594,10 +595,12 @@ class Backtest:
             # ...
             market_list = set(identifier.split(".")[0] for identifier in update_store)
             source_list = list(update_store)
+            #print('market list', market_list)
 
             # step 1: update book_state -> based on original data
             # step 2: match standing orders -> based on pre-trade state
             for market_id in market_list:
+                #print("MARKET ID", market_id)
                 self._market_step(market_id=market_id, 
                     book_update=update_store.get(f"{market_id}.BOOK"),
                     trade_update=update_store.get(f"{market_id}.TRADES", pd.Series([None] * 3)), # optional, default to empty pd.Series
