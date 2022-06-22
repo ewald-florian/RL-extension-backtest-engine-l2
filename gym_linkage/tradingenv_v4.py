@@ -73,6 +73,7 @@ class TradingEnvironment(gym.Env):
                                             np.ones(40))
         # self.reset()
 
+    # TODO: Theoretically, I could also call these methods from the original Backtest class
     def _market_step(self, market_id, book_update, trade_update):
         """
         Update post-trade market state and match standing orders against
@@ -107,7 +108,6 @@ class TradingEnvironment(gym.Env):
             raise Exception("(ERROR) unable to parse source_id '{source_id}'".format(
                 source_id=source_id,
             ))
-
         # _always_ alert agent with time interval between this and next timestamp
         self.agent.on_time(
             timestamp=timestamp,
@@ -119,11 +119,12 @@ class TradingEnvironment(gym.Env):
         """
         Resets agent, market and builds next Episode.
         """
-        #TODO: Episode_Index und Episode_Counter Logik
-        # kommen von run_all_episodes() aber run_all_episodes wird nicht immer gecallt.
+        #TODO: Where to manage the episode counter/index?
+        # If the run_all_episodes() is not used (because now,
+        # they are managed inside run_all_episodes.
+
         episode_counter = 0
         episode_index = 0
-
 
         episode_start_buffer = self.episode_start_list[self.episode_index]
         episode_start = self.episode_start_list[self.episode_index] + pd.Timedelta(self.episode_buffer, "min")
@@ -142,34 +143,36 @@ class TradingEnvironment(gym.Env):
             logging.info("(ERROR) could not run episode with the specified parameters")
             return  # do nothing
 
+        # Make the episode iterable (call it "self.iterable_episode")
+        self.iterable_episode = iter(self.episode)
+        # TODO: This could be a bottleneck
+        self.current_episode_length = len(list(self.episode))
+        print('(ENV) CURRENT EPISODE LENGTH:', self.current_episode_length)
+        # set step_counter to 0 (for new episode)
+        self.step_counter = 0
+
         # reset market instances
         MarketState.reset_instances()
         Order.reset_history()
         Trade.reset_history()
 
         # create fresh copy of the original agent instance (del self.agent reduntant?)
+        # TODO: agent.reset() Methode
         self.agent = copy.copy(self._agent)
 
         # setup market environment (Here, we have only a single market_id)
         # TODO: market_id logik... für nur ein asset
         MarketState(self.market_id)
-        # convert episode to list to make it subscriptable for step method
-        #self.episode_list = list(self.episode)
-        # length of current episode
-        #self.current_episode_length = len(self.episode_list)
-        #print(self.current_episode_length)
-        # set step_counter to 0 (for new episode)
-        self.step_counter = 0
-        # Make the episode iterable (call it "generator")
-        self.generator = iter(self.episode)
-
 
     # from original run method
     def run_episode_steps(self):
-        # episode must be generated with reset_before_run() first
+        """
+        Run Over all steps of a given episode,
+        based on original run() method from Backtest class.
+        Maybe this can be useful, however it is mostlx for testing
+        purposes.
+        """
         episode = self.episode
-        # test if it also works with the episode_list
-        #episode = self.episode_list
 
         for step, update_store in enumerate(episode, start=1):
 
@@ -211,63 +214,16 @@ class TradingEnvironment(gym.Env):
         result = None
         self.result_list.append(result)
 
-    def run_episode_steps_with_next(self):
-        # episode must be generated with reset_before_run() first
-        #episode = self.episode
-        # test if it also works with the episode_list
-        # episode = self.episode_list
-
-        for step, update_store in enumerate(episode, start=1):
-            # update episode and yield update dict (if it works
-            #update_store = self.episode.__next__()
-            print(update_store)
-
-            # update global timestamp
-            self.__class__.timestamp_global = self.episode.timestamp
-
-            # ...
-            market_list = set(identifier.split(".")[0] for identifier in update_store)
-            source_list = list(update_store)
-
-            # step 1: update book_state -> based on original data
-            # step 2: match standing orders -> based on pre-trade state
-            for market_id in market_list:
-                self._market_step(market_id=market_id,
-                                  book_update=update_store.get(f"{market_id}.BOOK"),
-                                  trade_update=update_store.get(f"{market_id}.TRADES", pd.Series([None] * 3)),
-                                  # optional, default to empty pd.Series
-                                  )
-
-            # during the buffer phase, do not inform agent about update
-            if episode.episode_buffering:
-                continue
-
-            # step 3: inform agent -> based on original data
-            for source_id in source_list:
-                self._agent_step(source_id=source_id,
-                                 either_update=update_store.get(source_id),
-                                 timestamp=self.episode.timestamp,
-                                 timestamp_next=self.episode.timestamp_next,
-                                 )
-
-            # finally, report the current state of the agent
-            if not (step % self.display_interval):
-                print(self.agent)
-
-        # TODO: Report and store Results (e.g. PnLs)
-        # TODO: das muss eigentlich in die run_episodes Klasse
-        result = None
-        self.result_list.append(result)
-
-    # TODO
+    # TODO: Central Method for tradingenv
     def step(self):
 
         self.step_counter += 1 # go to next step
+        print('(ENV) STEP COUNTER:', self.step_counter)
 
-        # generator is the iter object of self.episode
-        # generator is assigned in reset_before_run()
-        # -> self.generator = iter(self.episode)
-        update_store = next(self.generator)
+        # self.iterable_episode is the iter object of self.episode
+        # self.iterable_episode is assigned in reset_before_run()
+        # -> self.iterable_episode = iter(self.episode)
+        update_store = next(self.iterable_episode)
 
         self.__class__.timestamp_global = self.episode.timestamp
 
@@ -294,47 +250,9 @@ class TradingEnvironment(gym.Env):
                                  )
 
         # report the current state of the agent
-        #if not (self.step_counter % self.display_interval):
-        print(self.agent)
-        print("STEP NUMBER: ", self.step_counter)
-
-    def new_step(self, step): # try external step
-
-        # for step, update_store in enumerate(episode, start=1):
-        update_store = self.episode_list[step]
-
-        # update global timestamp
-        self.__class__.timestamp_global = self.episode.timestamp
-
-
-        market_list = set(identifier.split(".")[0] for identifier in update_store)
-        source_list = list(update_store)
-
-        # step 1: update book_state -> based on original data
-        # step 2: match standing orders -> based on pre-trade state
-        for market_id in market_list:
-            self._market_step(market_id=market_id,
-                                book_update=update_store.get(f"{market_id}.BOOK"),
-                                trade_update=update_store.get(f"{market_id}.TRADES", pd.Series([None] * 3)),
-                                # optional, default to empty pd.Series
-                                )
-
-        # during the buffer phase, do not inform agent about update
-        #if episode.episode_buffering:
-        #    continue
-
-        # step 3: inform agent -> based on original data
-        for source_id in source_list:
-            self._agent_step(source_id=source_id,
-                                either_update=update_store.get(source_id),
-                                timestamp=self.episode.timestamp,
-                                timestamp_next=self.episode.timestamp_next,
-                                )
-
-        # finally, report the current state of the agent
-        if not (step % self.display_interval):
+        if not (self.step_counter % self.display_interval):
+            print("STEP NUMBER: ", self.step_counter)
             print(self.agent)
-
 
     def generate_episode_start_list(self):
         """

@@ -429,7 +429,6 @@ class Episode:
 
             # ...
             yield update
-            #return update
         
         # time
         time_end = time.time()
