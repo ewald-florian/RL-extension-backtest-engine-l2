@@ -13,7 +13,7 @@ import warnings
 warnings.filterwarnings('ignore')
 import numpy as np
 import pandas as pd
-import tensorflow as tf
+import os
 
 # from gym_linkage.tradingenv_v2 import TradingEnvironment
 

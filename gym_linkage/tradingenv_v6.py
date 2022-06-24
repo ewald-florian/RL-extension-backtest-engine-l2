@@ -41,10 +41,12 @@ class TradingEnvironment(gym.Env):
         # TODO: plausible min and max ranges
         self.observation_space = spaces.Box(np.zeros(40), np.array([10_000]*40))
 
+    # TODO: take action as input
     def step(self): # action
         self.simulator.take_step()
         pass
 
+    # TODO: return first observation (call episode.__next__?)
     def reset(self):
         self.simulator.replay_data.reset_before_run()
         self.simulator.reset_simulation()
@@ -75,7 +77,7 @@ class ReplayData:
                  episode_interval: int = 30,
                  episode_shuffle: bool = True,
                  episode_buffer: int = 5,
-                 episode_length: int = 30,
+                 episode_length: int = 10,
                  num_episodes: int = 10
                  ):
 
@@ -179,6 +181,7 @@ class ReplayData:
         # print (note that this actually prints the "next" episode...
         print('(ENV) EPISODE COUNTER:', self.episode_counter)
 
+# Note: Call TradingSimulator() instead of Backtest() in BaseAgent
 class TradingSimulator():
     """
     Gym Environment for Backtest Engine.
@@ -266,7 +269,9 @@ class TradingSimulator():
         # e.g. 'Adidas.BOOK', second would be sometimes 'Adidas.TRADES'
         source_id = source_list[0]
         # save book as array without timestamp and labels
-        self.market_obs = update_store.get(source_id).array[1:]
+        market_obs = update_store.get(source_id).array[1:]
+        # convert to float (for model)
+        self.market_obs = market_obs.astype('float32')
 
 
         # update market

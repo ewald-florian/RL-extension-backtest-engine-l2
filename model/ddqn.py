@@ -5,6 +5,7 @@
 # Learns on Experience Replay on a trainable online network
 # updates weights of non-trainable target network
 import numpy as np
+from random import sample
 from collections import deque
 import tensorflow as tf
 from tensorflow.keras import Sequential
@@ -85,6 +86,8 @@ class DDQNModel:
         self.total_steps += 1
         if np.random.rand() <= self.epsilon:
             return np.random.choice(self.num_actions)
+
+        # Note: state.reshape(-1, state_dim)!
         q = self.online_network.predict(state)
         return np.argmax(q, axis=1).squeeze()
 

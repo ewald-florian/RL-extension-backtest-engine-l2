@@ -1,9 +1,11 @@
+# Idea: execute action inside the loop...
 
 # Now, TradingEnvironment uses trading.simulator
 from gym_linkage.tradingenv_v6 import TradingEnvironment  # wichtig: gleicher import wie bei base agent!
 from rlagent.rlagent_v2 import RLAgent
 from model.ddqn import DDQNModel
 import numpy as np
+import os
 
 
 # TODO: Action einbinden (Schritt 1: Extern, Schritt2: Intern)
@@ -22,15 +24,23 @@ ddqn.online_network.summary() # should it be initiated inside env? actually no, 
 env.simulator.replay_data.generate_episode_start_list()
 
 num_episodes = env.simulator.replay_data.num_episodes
+# statistics:
+action_list_all_episodes = []
+pnl_list_all_episodes = [] # reward
 
+print("NUMBER OF EPISODES", num_episodes)
 for episode_counter in range(num_episodes):#(num_episodes):
     # call reset before run (reset env and build new episode)
     env.reset()
     print(episode_counter)
     # the episode lengths can vary
     current_episode_length = env.simulator.replay_data.current_episode_length
-    env.liste = []
+    # initialize for first iteration (todo: proper solution)
     last_obs = np.zeros(40)
+    # statistics:
+    action_list = []
+    #pnl_list = 0 # reward
+
 
     # external done flag for testing
     done = False
@@ -39,6 +49,10 @@ for episode_counter in range(num_episodes):#(num_episodes):
 
         if step == (current_episode_length-1):
             done = True
+            # store final reward
+            result = env.simulator.agent.market_interface.pnl_realized_total
+            pnl_list_all_episodes.append(result)
+            # store number of trades
 
         env.step()
 
@@ -46,10 +60,18 @@ for episode_counter in range(num_episodes):#(num_episodes):
 
         # TODO: How to execute the action in rl_agent?
         action = ddqn.epsilon_greedy_policy(new_obs.reshape(-1, state_dim))
-        print(action)
+        action_list.append(action)
+        # EXECUTE ACTION:
+        if action == 0: #0:sell
+            env.simulator.agent.market_interface.submit_order('Adidas', "sell", 100)
+        elif action == 2: #2:buy
+            env.simulator.agent.market_interface.submit_order('Adidas', "buy", 100)
+        else: #1:wait
+            pass
 
-        # for testing
-        reward = 0
+        # dense reward
+        reward = env.simulator.agent.market_interface.pnl_realized_total
+        #print('reward', reward)
 
         if done:
             save_done = 1
@@ -59,10 +81,18 @@ for episode_counter in range(num_episodes):#(num_episodes):
         # store to ddqn memory
         ddqn.memorize_transition(last_obs, action, reward, new_obs, save_done)
 
+        # train model
+        if ddqn.train:
+            ddqn.experience_replay()
+        if done:
+            break
+
         # store obs as last_obs
         last_obs = new_obs
 
-# TODO: Some problem with the input shape in the NN
+    action_list_all_episodes.append(action_list)
+
+
 
 
 
