@@ -69,6 +69,7 @@ class RLAgent(BaseAgent):
         # normalization mit tickprize? / min-max
         # oder zscore mit 5 tagen
 
+        """
         # ACTION
         # include trading for testing
         action = np.random.randint(0, 2)
@@ -83,6 +84,7 @@ class RLAgent(BaseAgent):
         else:
             pass
 
+        """
         # DONE (Problem: Done is not necessary in our env...)
         done = 0
 

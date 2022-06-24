@@ -38,8 +38,8 @@ class TradingEnvironment(gym.Env):
         self.simulator = TradingSimulator(agent=agent)
         # gym
         self.action_space = spaces.Discrete(3)
-        # TODO
-        self.observation_space = spaces.Box(np.zeros(40), np.ones(40))
+        # TODO: plausible min and max ranges
+        self.observation_space = spaces.Box(np.zeros(40), np.array([10_000]*40))
 
     def step(self): # action
         self.simulator.take_step()
@@ -54,6 +54,15 @@ class TradingEnvironment(gym.Env):
         pass
 
     def seed(self):
+        pass
+
+    # random action for testing
+    # later, the compute_action has to call the model
+    def compute_action(self):
+        action = np.random.randint(3)
+        return action
+
+    def take_action(self):
         pass
 
 class ReplayData:
@@ -234,7 +243,7 @@ class TradingSimulator():
     def take_step(self):
 
         self.replay_data.step_counter += 1 # go to next step
-        print('(ENV) STEP COUNTER:', self.replay_data.step_counter)
+        #print('(ENV) STEP COUNTER:', self.replay_data.step_counter)
 
         # self.iterable_episode is the iter object of self.episode
         # self.iterable_episode is assigned in reset_before_run()
@@ -246,11 +255,23 @@ class TradingSimulator():
         # Update MarketState
         market_list = set(identifier.split(".")[0] for identifier in update_store)
         source_list = list(update_store)
-        # Original Code
-        # step 1: update book_state -> based on original data
-        # step 2: match standing orders -> based on pre-trade state
+
+
+        # OBSERVATION
+        #TODO: Include MarketContext class
+        #TODO: it would be more intuitively to update the market first and then get
+        # the infos directly from MarketState instead of getting them from the update dict..?
+        # MARKET OBSERVATION (needed for predict_action())
+
+        # e.g. 'Adidas.BOOK', second would be sometimes 'Adidas.TRADES'
+        source_id = source_list[0]
+        # save book as array without timestamp and labels
+        self.market_obs = update_store.get(source_id).array[1:]
+
+
+        # update market
         for market_id in market_list:
-            print('market_id', market_id)
+
             self._market_step(market_id=market_id,
                               book_update=update_store.get(f"{market_id}.BOOK"),
                               trade_update=update_store.get(f"{market_id}.TRADES", pd.Series([None] * 3)),
@@ -261,8 +282,9 @@ class TradingSimulator():
         #if episode.episode_buffering:
         #   continue
 
-        # step 3: inform agent -> based on original data
+        # inform agent
         for source_id in source_list:
+
             self._agent_step(source_id=source_id,
                              either_update=update_store.get(source_id),
                              timestamp=self.replay_data.episode.timestamp,
@@ -272,7 +294,7 @@ class TradingSimulator():
 
         # report the current state of the agent
         if not (self.replay_data.step_counter % self.display_interval):
-            print("STEP NUMBER: ", self.replay_data.step_counter)
+            #print("STEP NUMBER: ", self.replay_data.step_counter)
             print(self.agent)
 
     def reset_simulation(self):
@@ -294,4 +316,3 @@ class TradingSimulator():
         # create new MarketState instances
         for market_id in identifier_list:
             _ = MarketState(market_id)
-            print('MARKET STATE', _.instances)

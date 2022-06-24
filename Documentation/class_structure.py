@@ -9,6 +9,10 @@ class Environment(gym.Env):
 
     def __init__(self, replay, agent, *args, **kwargs):
 
+        #TODO: Question: but agent needs to be instantiate inside replay so that replay can use _agent_step???
+        # So my approach would be to instantiate agent in replay and use replay as entry for TradingEnv.
+        # Could I also instantiate agent in TradingEnv and pass it to replay (I guess so..)?
+
         self.replay = replay # TODO: replay should be instantiated with mode episode_generator, episode_broadcast, or episode_list
         self.agent = agent # TODO: 
 
@@ -31,7 +35,8 @@ class Environment(gym.Env):
         self.replay.reset() # update episode
 
         # get fresh agent 
-        # -> reset agent attributes, the underlying models remain unchanged
+        # -> reset agent attributes, the underlying models remain unchanged#
+        # TODO:
         self.agent.reset() 
 
     def render(self, *args, **kwargs): 
@@ -46,6 +51,7 @@ class Environment(gym.Env):
 
 # mid-level ---
 
+# TODO: Q: What is the benefit when seperating agent step and market step?
 class Replay: # used to go by 'Backtest'
 
     def __init__(self, *args, **kwargs):
@@ -140,6 +146,7 @@ class Agent:
 
 # bottom-level: episode ---
 
+# TODO: I would import the normal Episode class without any changes..?
 class Episode:
     """
     Episode is a generator that ...
@@ -163,6 +170,7 @@ class Episode:
 
 # bottom-level: market environment ---
 
+# TODO: I use the normal MarketState, Order, Trade classes from market.py
 class MarketState: 
 
     def __init__(self, *args, **kwargs):
@@ -173,6 +181,7 @@ class MarketState:
 
     def match(self, *args, **kwargs):
         pass
+
 
 class Order:
 
