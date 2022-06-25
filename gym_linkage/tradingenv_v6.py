@@ -10,15 +10,13 @@ IN ORDER TO USE:
 
 from env.market import MarketState, Order, Trade
 from env.replay import Episode
-# Note: Agent cannot be imported -> circular import
-# import RLAgent to instantiate backtest
-# from rlagent.rlagent import RLAgent
+
 
 # general imports
 import copy
 import datetime
 import logging
-logging.basicConfig(level=logging.CRITICAL) # logging.basicConfig(level=logging.NOTSET)
+logging.basicConfig(level=logging.CRITICAL)
 import pandas as pd
 import random
 random.seed(42)
@@ -27,7 +25,6 @@ import gym
 from gym import spaces
 import numpy as np
 
-# TODO: ReplayData, TradingSimulation über TradingEnvironment konfigurieren (input variablen)
 class TradingEnvironment(gym.Env):
 
     metadata = {'render.modes': ['human']}
@@ -41,14 +38,21 @@ class TradingEnvironment(gym.Env):
         # TODO: plausible min and max ranges
         self.observation_space = spaces.Box(np.zeros(40), np.array([10_000]*40))
 
-    # TODO: take action as input
     def step(self,action):
+        assert self.action_space.contains(action), '{} {} invalid'.format(action, type(action))
         #TODO: which is the correct order???
-        # I would almost say 1) action, 2) step...
-        self.simulator.take_step()
+        # I would rather say 1) action, 2) step...(the action has to affect
+        # the environment before we want to observe the new environment?
         self.take_action(action)
+        obs = self.simulator.take_step()
+        done = self.simulator.replay_data.done
+        # TODO: proper info dict (e.g. with infos from simulator)
+        info = {}
+        # TODO: proper reward function
+        reward = self.simulator.agent.market_interface.pnl_realized_total
 
-    # TODO: Required to "literally" return the observation?
+        return obs, reward, done, info
+
     def reset(self):
         self.simulator.replay_data.reset_before_run()
         self.simulator.reset_simulation()
@@ -56,6 +60,9 @@ class TradingEnvironment(gym.Env):
         # which is the input argument for the first action!
         self.simulator.take_step()
         print("..reset for new episode")
+        # return first observation (as last_obs)
+        #TODO: later also return the agent state part of the observation
+        return self.simulator.market_obs.copy()
 
     def render(self):
         pass
@@ -67,7 +74,7 @@ class TradingEnvironment(gym.Env):
     def compute_action(self):
         pass
 
-    # TODO: implement proper take_action method
+    # TODO: implement properly (where is the best place? in simulator)
     def take_action(self,action):
 
         if action == 0:  # 0:sell
@@ -88,7 +95,7 @@ class ReplayData:
                  episode_shuffle: bool = True,
                  episode_buffer: int = 5,
                  episode_length: int = 10,
-                 num_episodes: int = 2
+                 num_episodes: int = 5
                  ):
 
         # traingenv development:
@@ -107,6 +114,10 @@ class ReplayData:
         self.num_episodes = num_episodes
         # TODO: We have only a single market ID, adjust, all methods
         self.market_id = self.identifier_list[0].split('.')[0]
+        self.step_counter = 0
+        self.episode_counter = 0
+        self.episode_index = 0
+        self.done = False
         # generate episode_start_list (necessary to run the simulation)
         self.generate_episode_start_list()
 
@@ -185,6 +196,9 @@ class ReplayData:
         print('(ENV) CURRENT EPISODE LENGTH:', self.current_episode_length)
         # set step_counter to 0 (for new episode)
         self.step_counter = 0
+        # set done flag to false (will be set true in Simulator)
+        # if step > max_steps
+        self.done = False
         # Adds 1 to episode_counter after each Episode
         self.episode_counter += 1
         # TODO: episode_index if Bedingung (nur wenn Episode erfolgreich gebaut werden konnte...)
@@ -258,7 +272,10 @@ class TradingSimulator():
 
         # note: replay data is responsible for step counting
         self.replay_data.step_counter += 1
-        print('(ENV) STEP COUNTER:', self.replay_data.step_counter)
+        # note: replay is responsible for done flag
+        if self.replay_data.step_counter >= self.replay_data.current_episode_length:
+            self.replay_data.done = True
+            print('(ENV) DONE')
 
         # self.iterable_episode is the iter object of self.episode
         # self.iterable_episode is assigned in reset_before_run()
@@ -270,7 +287,6 @@ class TradingSimulator():
         # Update MarketState
         market_list = set(identifier.split(".")[0] for identifier in update_store)
         source_list = list(update_store)
-
 
         # OBSERVATION
         #TODO: Include MarketContext class
@@ -284,7 +300,6 @@ class TradingSimulator():
         market_obs = update_store.get(source_id).array[1:]
         # convert to float (for model)
         self.market_obs = market_obs.astype('float32')
-
 
         # update market
         for market_id in market_list:
@@ -313,6 +328,11 @@ class TradingSimulator():
         if not (self.replay_data.step_counter % self.display_interval):
             #print("STEP NUMBER: ", self.replay_data.step_counter)
             print(self.agent)
+
+        # NEW (MARKET) OBSERVATION
+        obs = self.market_obs.copy()
+
+        return obs
 
     def reset_simulation(self):
         # reset the agent
