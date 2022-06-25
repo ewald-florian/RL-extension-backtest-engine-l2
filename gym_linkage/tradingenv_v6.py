@@ -43,13 +43,18 @@ class TradingEnvironment(gym.Env):
 
     # TODO: take action as input
     def step(self,action):
+        #TODO: which is the correct order???
+        # I would almost say 1) action, 2) step...
         self.simulator.take_step()
         self.take_action(action)
 
-    # TODO: return first observation (call episode.__next__?)
+    # TODO: Required to "literally" return the observation?
     def reset(self):
         self.simulator.replay_data.reset_before_run()
         self.simulator.reset_simulation()
+        # This is necessary to provide the first observation
+        # which is the input argument for the first action!
+        self.simulator.take_step()
         print("..reset for new episode")
 
     def render(self):
@@ -102,6 +107,8 @@ class ReplayData:
         self.num_episodes = num_episodes
         # TODO: We have only a single market ID, adjust, all methods
         self.market_id = self.identifier_list[0].split('.')[0]
+        # generate episode_start_list (necessary to run the simulation)
+        self.generate_episode_start_list()
 
     def generate_episode_start_list(self):
         """
@@ -200,14 +207,13 @@ class TradingSimulator():
         self.result_list = []
         self.display_interval=10
 
-        # TODO: Organisieren wo agent instanziiert und resetted wird
+        # TODO: Organisieren wo agent instanziiert und resetted wird (extern? Agent class?)
         self.agent = agent
 
         # instantiate replay data class
         self.replay_data = ReplayData() # todo: confic file
 
-    #TODO: Theoretically, could I also call these methods from the original Backtest class?
-    # or would this be a problem since I dont acces the correct MarketState() instance?
+
     def _market_step(self, market_id, book_update, trade_update):
         """
         Update post-trade market state and match standing orders against
@@ -250,8 +256,9 @@ class TradingSimulator():
 
     def take_step(self):
 
-        self.replay_data.step_counter += 1 # go to next step
-        #print('(ENV) STEP COUNTER:', self.replay_data.step_counter)
+        # note: replay data is responsible for step counting
+        self.replay_data.step_counter += 1
+        print('(ENV) STEP COUNTER:', self.replay_data.step_counter)
 
         # self.iterable_episode is the iter object of self.episode
         # self.iterable_episode is assigned in reset_before_run()
