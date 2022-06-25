@@ -14,8 +14,8 @@ from rlagent.rlagent_v2 import RLAgent
 # register custom gym environment
 register(
     id='trading-v0',
-    entry_point='tradingenv_v6:TradingEnvironment',
-    #max_episode_steps=trading_days
+    # correct version...
+    entry_point='tradingenv_v7:TradingEnvironment',
 )
 
 agent=RLAgent('test_agent', 100)

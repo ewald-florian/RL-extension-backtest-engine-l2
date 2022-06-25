@@ -1,6 +1,6 @@
 from agent.agent import BaseAgent
 # Import backtest from rlreplay (rl-adapted version of replay)
-from env.rlreplay import Backtest # also needs to be imported in agent.py
+from env.rlreplayTTT import Backtest # also needs to be imported in agent.py
 #from env.replay import Backtest
 import datetime
 import numpy as np

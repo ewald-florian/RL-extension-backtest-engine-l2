@@ -1,31 +1,34 @@
-# Idea: execute action inside the loop...
 
-# Now, TradingEnvironment uses trading.simulator
-from gym_linkage.tradingenv_v6 import TradingEnvironment  # wichtig: gleicher import wie bei base agent!
+from gym_linkage.tradingenv_v7 import TradingEnvironment  # wichtig: gleicher import wie bei base agent!
 from rlagent.rlagent_v2 import RLAgent
 from model.ddqn import DDQNModel
 import numpy as np
 import os
 
+custom_config_dict = {
+        "episode_buffer": 2,
+        "episode_length": 12,
+        "num_episodes": 8
+        }
 
 agent = RLAgent(
     name="RLAgent",
     quantity=100)
 
-env = TradingEnvironment(agent=agent)
+env = TradingEnvironment(agent=agent, config_dict=custom_config_dict)
 # to be changed if spaces become multi dimensional
 state_dim = env.observation_space.shape[0]
 num_actions = env.action_space.n
+# instantiate model (outside of env!)
 ddqn = DDQNModel(state_dim=state_dim, num_actions=num_actions)
 ddqn.online_network.summary()
-
-num_episodes = env.simulator.replay_data.num_episodes
 
 # statistics:
 action_list_all_episodes = []
 reward_list_all_episodes = []
 
-print("(LOOP) NUMBER OF EPISODES", num_episodes)
+num_episodes = env.simulator.replay_data.num_episodes
+
 for episode_counter in range(num_episodes):
     # call env.reset() -> return first observation
     last_obs = env.reset()
@@ -67,6 +70,7 @@ for episode_counter in range(num_episodes):
 
 os.system('say "Training Loop over all Episodes is completed"')
 
+# stats
 print('action means')
 for i, action_list in enumerate(action_list_all_episodes):
     print(np.mean(action_list))
