@@ -10,6 +10,7 @@ IN ORDER TO USE:
 
 from env.market import MarketState, Order, Trade
 from env.replay import Episode
+#from rlagent.rlagent_v2 import RLAgent
 
 
 # general imports
@@ -25,11 +26,21 @@ import gym
 from gym import spaces
 import numpy as np
 
+#env_config = {"agent":agent,
+#              "config_dict":None}
+
 class TradingEnvironment(gym.Env):
 
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, agent, config_dict=None): # agent for TradingSimulator
+    #def __init__(self, agent=None, config_dict=None):
+    def __init__(self, config=None):
+
+        #agent = config["agent"]
+        #config_dict = env_config["config_dict"]
+
+        agent = config.get("agent")
+        config_dict = config.get("config_dict")
 
         # instantiate TradingEnv (the replay/simulation class)
         self.simulator = TradingSimulator(agent=agent, config_dict=config_dict)
@@ -254,7 +265,9 @@ class TradingSimulator():
     """
     timestamp_global = None
 
-    def __init__(self, agent, config_dict=None):
+    def __init__(self, agent=None, config_dict=None):
+
+        # TODO: default_agent:
 
         # from arguments
         self._agent = agent
@@ -266,6 +279,7 @@ class TradingSimulator():
 
         # instantiate replay data class with config_dict
         self.replay_data = ReplayData(config_dict=config_dict)
+
 
 
     def _market_step(self, market_id, book_update, trade_update):

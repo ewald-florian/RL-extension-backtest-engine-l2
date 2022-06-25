@@ -11,11 +11,18 @@ custom_config_dict = {
         "num_episodes": 8
         }
 
+
+
 agent = RLAgent(
     name="RLAgent",
     quantity=100)
 
-env = TradingEnvironment(agent=agent, config_dict=custom_config_dict)
+env_config = {"agent":agent,
+              "config_dict":None
+              }
+
+#env = TradingEnvironment(agent=agent, config_dict=custom_config_dict)
+env = TradingEnvironment(env_config=env_config)
 # to be changed if spaces become multi dimensional
 state_dim = env.observation_space.shape[0]
 num_actions = env.action_space.n
