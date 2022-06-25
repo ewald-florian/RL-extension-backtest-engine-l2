@@ -67,6 +67,14 @@ for episode_counter in range(num_episodes):
 
 os.system('say "Training Loop over all Episodes is completed"')
 
+print('action means')
+for i, action_list in enumerate(action_list_all_episodes):
+    print(np.mean(action_list))
+
+print('reward means')
+for i, reward_list in enumerate(reward_list_all_episodes):
+    print(np.mean(reward_list))
+
 
 
 

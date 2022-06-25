@@ -91,11 +91,11 @@ class ReplayData:
                  identifier_list: list = ["Adidas.BOOK", "Adidas.TRADES"],
                  date_start: str = "2021-01-04",
                  date_end: str = "2021-01-08",
-                 episode_interval: int = 30,
+                 episode_interval: int = 5,
                  episode_shuffle: bool = True,
                  episode_buffer: int = 5,
                  episode_length: int = 10,
-                 num_episodes: int = 5
+                 num_episodes: int = 10
                  ):
 
         # traingenv development:
