@@ -11,7 +11,7 @@ from env.market import MarketState, Order, Trade
 #from gym_linkage.tradingenv_v5 import TradingEnvironment
 # from env.replay import Backtest # use timestamp_global
 
-from gym_linkage.tradingenv_v6 import TradingSimulator
+from gym_linkage.tradingenv_v7 import TradingSimulator
 
 # general imports
 import abc
