@@ -1,33 +1,28 @@
-import gym
-from gym.spaces import Discrete, MultiDiscrete
-import numpy as np
-import random
-import pandas
-from gym.envs.registration import register
-from gym_linkage.tradingenv_v8 import TradingEnvironment
-from rlagent.rlagent_v2 import RLAgent
 
-
+#TODO: Ich habe wieder das Problem, dass MarketState nicht funktioniert (loggt 0en),
+# irgendwo muss etwas mit den imports schief gegangen sein wie letztes mal...
 
 import ray
-# Start a new instance of Ray (when running this tutorial locally) or
-# connect to an already running one (when running this tutorial through Anyscale).
-ray.init()
-
+from gym_linkage.tradingenv_v8 import TradingEnvironment
 from ray.rllib.agents.ppo import PPOTrainer
 from ray import tune
-'''
+import pprint
+
+
+# Start a new instance of Ray
+ray.init()
+
+custom_config_dict = {
+        "episode_buffer": 2,
+        "episode_length": 12,
+        "num_episodes": 8
+        }
 agent = RLAgent(
     name="RLAgent",
     quantity=100)
 
-print(agent)
+# TODO: Tune registration
 
-env_config = {"agent":agent,
-              "config_dict":None
-              }
-
-'''
 config = {
     "env": TradingEnvironment,
     #"env_config": {
@@ -39,6 +34,27 @@ config = {
 }
 
 
-
+# instantiate ppo trainer
 rllib_trainer = PPOTrainer(config=config)
 rllib_trainer
+
+# run a training loop
+results = rllib_trainer.train()
+# del config info
+del results["config"]
+# show results
+pprint.pprint(results)
+
+#ray.shutdown()
+
+"""
+# We use the `Trainer.save()` method to create a checkpoint.
+checkpoint_file = rllib_trainer.save()
+print(f"Trainer (at iteration {rllib_trainer.iteration} was saved in '{checkpoint_file}'!")
+
+new_trainer = PPOTrainer(config=config)
+new_trainer.restore(checkpoint_file)
+
+rllib_trainer.stop()
+new_trainer.stop()
+"""

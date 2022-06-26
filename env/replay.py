@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 
 # use relative imports for other modules 
-from env.market import MarketState, Order, Trade
+#from env.market import MarketState, Order, Trade
+#from gym_linkage.tradingenv_v8 import MarketState, Order, Trade
 
 # general imports
 import copy

@@ -40,8 +40,8 @@ class TradingEnvironment(gym.Env):
         #agent = config["agent"]
         #config_dict = env_config["config_dict"]
 
-        agent = config.get("agent")
-        config_dict = config.get("config_dict")
+        #agent = config.get("agent")
+        #config_dict = config.get("config_dict")
 
         # instantiate TradingEnv (the replay/simulation class)
         self.simulator = TradingSimulator()#agent=agent, config_dict=config_dict)

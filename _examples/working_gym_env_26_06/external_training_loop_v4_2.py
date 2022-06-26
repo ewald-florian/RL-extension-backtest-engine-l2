@@ -18,11 +18,11 @@ agent = RLAgent(
     quantity=100)
 
 env_config = {"agent":agent,
-              "config_dict":custom_config_dict}
-TradingEnvironment(env_config=env_config)
+              "config_dict":None
+              }
 
-#env = TradingEnvironment(agent=agent, config_dict=custom_config_dict)
-env = TradingEnvironment(env_config=env_config)
+env = TradingEnvironment(agent=agent, config_dict=custom_config_dict)
+# env = TradingEnvironment(env_config=env_config)
 #env = TradingEnvironment()
 # to be changed if spaces become multi dimensional
 state_dim = env.observation_space.shape[0]
