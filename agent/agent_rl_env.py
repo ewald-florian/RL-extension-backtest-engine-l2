@@ -5,8 +5,8 @@ Identical to env.agent.py but uses TradingEnvironment instead of Backtest.
 # TODO: Check import sources
 from env.market import MarketState, Order, Trade
 #from gym_linkage.tradingenv_v8 import MarketState, Order, Trade
-from gym_linkage.tradingenv_v9 import TradingSimulator#, MarketState, Order, Trade
-
+#from gym_linkage.tradingenv_v10 import TradingSimulator#, MarketState, Order, Trade
+from gym_linkage.tradingenv_v10 import Replay
 # general imports
 import abc
 import pandas as pd
@@ -84,7 +84,7 @@ class BaseAgent(abc.ABC):
 
         # read global timestamp from Backtest class attribute
         # TODO:...
-        timestamp_global = TradingSimulator.timestamp_global
+        timestamp_global = Replay.timestamp_global
 
         # string representation
         string = f"""
@@ -165,7 +165,7 @@ class MarketInterface:
 
         # submit order
         order = Order(
-            timestamp=TradingSimulator.timestamp_global + pd.Timedelta(self.latency, "us"),  # microseconds
+            timestamp=Replay.timestamp_global + pd.Timedelta(self.latency, "us"),  # microseconds
             market_id=market_id,
             side=side,
             quantity=quantity,

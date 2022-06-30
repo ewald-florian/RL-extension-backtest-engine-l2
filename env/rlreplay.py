@@ -351,6 +351,10 @@ class Episode:
     def __next__(self):
         pass
 
+    #todo
+    def __len__(self):
+        pass
+
     def __iter__(self):
         """
         Iterate over the set episode. 

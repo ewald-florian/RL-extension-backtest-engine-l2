@@ -1,5 +1,5 @@
 
-from gym_linkage.tradingenv_v10 import TradingEnvironment  # wichtig: gleicher import wie bei base agent!
+from gym_linkage.tradingenv_v9 import TradingEnvironment  # wichtig: gleicher import wie bei base agent!
 from rlagent.rlagent_v2 import RLAgent
 from model.ddqn import DDQNModel
 import numpy as np

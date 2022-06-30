@@ -1,59 +1,46 @@
-
-from gym_linkage.tradingenv_v10 import TradingEnvironment  # wichtig: gleicher import wie bei base agent!
+from gym_linkage.tradingenv_v10 import Replay  # wichtig: gleicher import wie bei base agent!
 from rlagent.rlagent_v2 import RLAgent
+from gym_linkage.tradingenv_v10 import TradingEnvironment, AgentHelper
 from model.ddqn import DDQNModel
-import numpy as np
 import os
+import numpy as np
+import pandas as pd
 
-custom_config_dict = {
-        "episode_buffer": 2,
-        "episode_length": 12,
-        "num_episodes": 8
-        }
-
-
-
-agent = RLAgent(
+sub_agent = RLAgent(
     name="RLAgent",
     quantity=100)
 
-# agent kann weg
-env_config = {"config":{ "agent":agent,
-              "config_dict":custom_config_dict}}
+agent = AgentHelper(sub_agent)
 
+replay = Replay()
 
-#Todo: env config anpassen
-# agent = Agent()
-# replay = Raplay(custom_config_dict)
+env_config = {"config":{"agent":agent, "replay":replay}}
 
-#env = TradingEnvironment(config=config,agent=agent,replay=replay)
-
-#env = TradingEnvironment(agent=agent, config_dict=custom_config_dict)
 env = TradingEnvironment(env_config=env_config)
-#env = TradingEnvironment()
-# to be changed if spaces become multi dimensional
+
 state_dim = env.observation_space.shape[0]
 num_actions = env.action_space.n
-# instantiate model (outside of env!)
+
 ddqn = DDQNModel(state_dim=state_dim, num_actions=num_actions)
 ddqn.online_network.summary()
 
-# statistics:
 action_list_all_episodes = []
 reward_list_all_episodes = []
 
-num_episodes = env.simulator.replay_data.num_episodes
-
+#num_episodes = env.replay.num_episodes
+num_episodes = 3
+print('NUM EPISODES', num_episodes)
 for episode_counter in range(num_episodes):
     # call env.reset() -> return first observation
     last_obs = env.reset()
     # the episode lengths can vary
-    current_episode_length = env.simulator.replay_data.current_episode_length
+    current_episode_length = env.replay.current_episode_length
 
     # statistics:
     action_list = []
     reward_list = []
 
+    print('NUM STEPS', current_episode_length - 1)
     for step in range(current_episode_length-1):
 
         # compute action according to last_obs
@@ -93,17 +80,3 @@ for i, action_list in enumerate(action_list_all_episodes):
 print('reward means')
 for i, reward_list in enumerate(reward_list_all_episodes):
     print(np.mean(reward_list))
-
-
-
-
-
-
-
-
-
-
-
-
-
-

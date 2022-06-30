@@ -23,6 +23,7 @@ from env.replay import Episode
 # general imports
 import copy
 import datetime
+import logging
 logging.basicConfig(level=logging.CRITICAL)
 import pandas as pd
 import random
