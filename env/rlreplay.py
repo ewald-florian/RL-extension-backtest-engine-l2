@@ -68,8 +68,6 @@ class Episode:
         # dynamically set attributes (on per-update basis)
         self._episode_buffering = None
 
-        #self.__iter__()
-        #self._make_episode_iterable()
         # reset step counter to 0
         self.step = 0
 
@@ -376,11 +374,12 @@ class Episode:
         self._data_store_iter = iter(self._data_store)
 
     # iteration ---
-
+    """
     def __iter__(self):
         ''' Returns the Iterator object '''
         return EpisodeIterator(self)
-
+    """
+    """
     def __next__(self):
         # return, that is, disallow iteration if no episode has been set
 
@@ -401,6 +400,7 @@ class Episode:
 
         # count the step
         self.step = self.step + 1
+    """
 
 
 
@@ -408,8 +408,10 @@ class Episode:
     #todo: should return the length of the current episode
     def __len__(self):
         return len(self._data_monitor)
-    """ original __iter__ method:
-    
+
+    #original __iter__ method:
+
+
     def __iter__(self):
         '''
         Iterate over the set episode. 
@@ -503,4 +505,3 @@ class Episode:
             step=step,
             time_per_step=time_per_step,
         ))
-    """

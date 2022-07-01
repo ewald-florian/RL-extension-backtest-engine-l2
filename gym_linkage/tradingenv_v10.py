@@ -24,7 +24,23 @@ class TradingEnvironment(gym.Env):
         self.action_space = spaces.Discrete(3)
         self.observation_space = spaces.Box(np.zeros(40), np.array([10_000]*40))
 
-    def step(self,action):
+    def step(self, action):
+        """
+        Executes a step in the environment by applying an action.
+        Transitions the environment to the next state.
+        Returns the new observation, reward, completion status, and other info.
+        :param action:
+            int, (format depends on action_space)
+        :return: observation
+            np.array, (format depends on observation space)
+        :return: reward
+            The reward from the environment after executing the action
+            that was given as the input
+        :return: done
+            bool, True if episode is complete, False otherwise
+        :return: info
+            dict, contains further info on the environment
+        """
         assert self.action_space.contains(action), '{} {} invalid'.format(action, type(action))
         # 1) take action
         self.agent.take_action(action=action)
@@ -45,6 +61,13 @@ class TradingEnvironment(gym.Env):
         return obs, reward, done, info
 
     def reset(self):
+        """
+        Resets the environment to its initial state, and returns the
+        observation of the environment corresponding to the initial state.
+        Has to be called to start a new episode.
+        :return: first_obs
+            np.array, (format depends on observation space)
+        """
         self.replay.reset()
         self.agent.reset()
         self.replay.step()
@@ -171,22 +194,16 @@ class Replay:
                 episode_end=episode_end,
             )
 
-
-        #####
-        #self.episode.__iter__()
-        #####
         # return if episode could not be generated
         except:
             logging.info("(ERROR) could not run episode with the specified parameters")
             print("No Episode was build")
             return  # do nothing
 
-        """
+        #TODO: Build __next__ and step counter directly in Episode class
         # Make the episode iterable (call it "self.iterable_episode")
         self.iterable_episode = iter(self.episode)
         # TODO: This could be a bottleneck? (Should be outsourced to episode...)
-        self.current_episode_length = len(list(self.episode))
-        print('(ENV) CURRENT EPISODE LENGTH:', self.current_episode_length)
         # set step_counter to 0 (for new episode)
         self.step_counter = 0
         # set done flag to false (will be set true in Simulator)
@@ -200,7 +217,7 @@ class Replay:
         # print (note that this actually prints the "next" episode...
         print('(ENV) EPISODE COUNTER:', self.episode_counter)
         #todo: return first observation to env
-        """
+
 
     def _reset_market(self):
         # reset market instances
@@ -241,49 +258,57 @@ class Replay:
         # note: replay data is responsible for step counting
         self.step_counter += 1
         # note: replay is responsible for done flag
-        if self.step_counter >= self.current_episode_length:
+        if self.step_counter >= self.episode.__len__():
             self.done = True
             print('(ENV) DONE')
 
-        # self.iterable_episode is the iter object of self.episode
-        # self.iterable_episode is assigned in reset_before_run()
-        # -> self.iterable_episode = iter(self.episode)
-        update_store = next(self.iterable_episode)
-        # update global timestamp
-        self.__class__.timestamp_global = self.episode.timestamp
+        # TODO: ich brauche das statement eigentlich nicht, da ich den externen loop benutze
+        # include try-except statement:
+        try:
 
-        # Update MarketState
-        market_list = set(identifier.split(".")[0] for identifier in update_store)
-        source_list = list(update_store)
+            # self.iterable_episode is the iter object of self.episode
+            # self.iterable_episode is assigned in reset_before_run()
+            # -> self.iterable_episode = iter(self.episode)
+            update_store = next(self.iterable_episode)
+            # update global timestamp
+            self.__class__.timestamp_global = self.episode.timestamp
 
-        # OBSERVATION
-        #TODO: Include MarketContext class
-        #TODO: it would be more intuitively to update the market first and then get
-        # the infos directly from MarketState instead of getting them from the update dict..?
-        # MARKET OBSERVATION (needed for predict_action())
+            # Update MarketState
+            market_list = set(identifier.split(".")[0] for identifier in update_store)
+            source_list = list(update_store)
 
-        # e.g. 'Adidas.BOOK', second would be sometimes 'Adidas.TRADES'
-        source_id = source_list[0]
-        # save book as array without timestamp and labels
-        market_obs = update_store.get(source_id).array[1:]
-        # convert to float (for model)
-        self.market_obs = market_obs.astype('float32')
+            # OBSERVATION
+            #TODO: Include MarketContext class
+            #TODO: it would be more intuitively to update the market first and then get
+            # the infos directly from MarketState instead of getting them from the update dict..?
+            # MARKET OBSERVATION (needed for predict_action())
 
-        # update market
-        for market_id in market_list:
+            # e.g. 'Adidas.BOOK', second would be sometimes 'Adidas.TRADES'
+            source_id = source_list[0]
+            # save book as array without timestamp and labels
+            market_obs = update_store.get(source_id).array[1:]
+            # convert to float (for model)
+            self.market_obs = market_obs.astype('float32')
 
-            self._market_step(market_id=market_id,
-                              book_update=update_store.get(f"{market_id}.BOOK"),
-                              trade_update=update_store.get(f"{market_id}.TRADES", pd.Series([None] * 3)),
-                              # optional, default to empty pd.Series
-                              )
+            # update market
+            for market_id in market_list:
 
-        # NEW (MARKET) OBSERVATION
-        obs = self.market_obs.copy()
-        #return obs
+                self._market_step(market_id=market_id,
+                                  book_update=update_store.get(f"{market_id}.BOOK"),
+                                  trade_update=update_store.get(f"{market_id}.TRADES", pd.Series([None] * 3)),
+                                  # optional, default to empty pd.Series
+                                  )
 
-        # update store is necessary input for agent.step()
-        return update_store, self.episode.timestamp, self.episode.timestamp_next
+            # NEW (MARKET) OBSERVATION
+            obs = self.market_obs.copy()
+            #return obs
+
+            # update store is necessary input for agent.step()
+            return update_store, self.episode.timestamp, self.episode.timestamp_next
+
+        except StopIteration:
+            print("Iteration exhausted")
+
 
 # TODO: Agent komplett selbstständig machen...
 class AgentHelper:
