@@ -1,5 +1,13 @@
-# !/usr/bin/env python3
-# -*- coding: utf-8 -*-
+"""
+Explanation:
+-----------
+- Epsiode is used by TradingEnvironment
+- rlreplay Based on replay with some minor changes
+- __iter__: make episode iterable to call next with step methods
+- __len__ to return the episode length
+...
+"""
+
 
 # use relative imports for other modules 
 #from env.market import MarketState, Order, Trade
@@ -16,6 +24,7 @@ import random
 random.seed(42)
 import time
 
+# note: path goes to different project which already contained the data
 SOURCE_DIRECTORY = "/Users/florianewald/PycharmProjects/l2-backtest-engine-v2X/efn2_backtesting"
 DATETIME = "TIMESTAMP_UTC"
 
@@ -50,6 +59,7 @@ class Episode:
         self._episode_start = pd.Timestamp(episode_start)
         self._episode_end = pd.Timestamp(episode_end)
 
+        # maximum deviation from the expected episode length
         # setup routine
         self._episode_setup(
             max_deviation_tol=300, # in seconds
@@ -57,6 +67,11 @@ class Episode:
 
         # dynamically set attributes (on per-update basis)
         self._episode_buffering = None
+
+        #self.__iter__()
+        #self._make_episode_iterable()
+        # reset step counter to 0
+        self.step = 0
 
     # static attributes ---
 
@@ -123,6 +138,7 @@ class Episode:
 
         # set attributes ---
 
+        # TODO: can I use the __next__ to get to next _data_store and _data_monitor?
         # set data_store to iterate over using the __iter__ method
         self._data_store = data_store
         # set data_monitor to iterate over using the __iter__ method
@@ -274,7 +290,7 @@ class Episode:
     def _align_data_store(self, data_store):
         """
         Consolidate and split again all sources so that each source dataframe
-        contains a state for each ocurring timestamp across all sources.
+        contains a state for each occurring timestamp across all sources.
 
         :param data_store:
             dict, {<identifier>: <pd.DataFrame>, *}, original timestamps
@@ -346,23 +362,62 @@ class Episode:
 
         return data_monitor
 
-    # iteration ---
-        
-    def __next__(self):
-        pass
+    # TODO:
+    def _make_episode_iterable(self):
+        """
+        Create iterable objects of data_monitor and data_store which can
+        be used for the __next__method.
+        :return: _data_monitor_iter
+            ...
+        :return: _data_store_iter
+            ...
+        """
+        self._data_monitor_iter = iter(self._data_monitor)
+        self._data_store_iter = iter(self._data_store)
 
-    #todo
-    def __len__(self):
-        pass
+    # iteration ---
 
     def __iter__(self):
-        """
+        ''' Returns the Iterator object '''
+        return EpisodeIterator(self)
+
+    def __next__(self):
+        # return, that is, disallow iteration if no episode has been set
+
+        self.step = self.step + 1
+
+        if not self._episode_available:
+            return
+
+        self._timestamp = self._data_monitor_iter.__next()
+
+        # TODO: I can use this after I implement a step counter...
+        self._timestamp_next = self._data_monitor.iloc[min(
+            self.step + 1, len(self._data_monitor.index) - 1
+        ), 0]
+
+
+        self._data_store_iter.__next__()
+
+        # count the step
+        self.step = self.step + 1
+
+
+
+
+    #todo: should return the length of the current episode
+    def __len__(self):
+        return len(self._data_monitor)
+    """ original __iter__ method:
+    
+    def __iter__(self):
+        '''
         Iterate over the set episode. 
         
         NOTE: Use the self._episode_buffering flag to check if the buffering 
         phase has ended - only then should the agent be notified about market 
         updates. 
-        """
+        '''
         
         # return, that is, disallow iteration if no episode has been set
         if not self._episode_available:
@@ -448,385 +503,4 @@ class Episode:
             step=step,
             time_per_step=time_per_step,
         ))
-
-class Backtest:
-
-    timestamp_global = None
-
-    def __init__(self,
-        agent, # backtest is wrapper for trading agent
-    ):
-        """
-        Backtest wrapper that is used to evaluate a trading agent on one or 
-        multiple episodes of historical market data. 
-
-        Note that the original _agent is used only to derive a fresh copy with 
-        each additional episode. 
-
-        :param agent:
-            Agent, trading agent instance that is to be evaluated
-        """
-
-        # from arguments
-        self._agent = agent 
-
-        # TODO: ...
-        self.result_list = []    
-
-    # market/agent step ---
-
-    def _market_step(self, market_id, book_update, trade_update):
-        """
-        Update post-trade market state and match standing orders against 
-        pre-trade market state.
-
-        :param market_id:
-            str, market identifier
-        :param book_update:
-            pd.Series, ...
-        :param trade_update:
-            pd.Series, ...
-        """
-
-        # update market state
-        MarketState.instances[market_id].update(
-            book_update=book_update,
-            trade_update=trade_update,
-        )
-
-        # match standing agent orders against pre-trade state
-        MarketState.instances[market_id].match()
-
-    def _agent_step(self, source_id, either_update, timestamp, timestamp_next):
-        """
-        Inform trading agent about either book or trades state through the 
-        corresponding method. Also, inform trading agent about this and next 
-        timestamp. 
-
-        :param source_id:
-            str, source identifier
-        :param either_update:
-            pd.Series, ...
-        :param timestamp:
-            pd.Timestamp, ...
-        :param timestamp_next:
-            pd.Timestamp, ...
-        """
-
-        # case 1: alert agent every time that book is updated
-        if source_id.endswith("BOOK"):
-            self.agent.on_quote(market_id=source_id.split(".")[0], 
-                book_state=either_update,
-            )
-        # case 2: alert agent every time that trade happens
-        elif source_id.endswith("TRADES"):
-            self.agent.on_trade(market_id=source_id.split(".")[0],
-                trades_state=either_update,
-            )
-        # unknown source_id
-        else:
-            raise Exception("(ERROR) unable to parse source_id '{source_id}'".format(
-                source_id=source_id, 
-            ))
-        
-        # _always_ alert agent with time interval between this and next timestamp
-        self.agent.on_time(
-            timestamp=timestamp,
-            timestamp_next=timestamp_next,
-        )
-
-    # option 1: run single episode ---
-
-    def run(self, 
-        identifier_list:list,
-        episode_start_buffer:str,
-        episode_start:str,
-        episode_end:str,
-        display_interval:int=100,
-    ):  
-        """
-        Run agent against a single backtest instance based on a specified 
-        episode. 
-
-        :param identifier_list:
-            list, <market_id>.BOOK/TRADES identifier for each respective data source
-        :param episode_start_buffer:
-            pd.Timestamp, 
-        :param episode_start:
-            pd.Timestamp, ...
-        :param episode_end:
-            pd.Timestamp, ...
-        """
-
-        # build episode ---
-
-        # try to build episode based on the specified parameters
-        try:
-            episode = Episode(
-                identifier_list=identifier_list,
-                episode_start_buffer=episode_start_buffer,
-                episode_start=episode_start,
-                episode_end=episode_end,
-            )
-        # return if episode could not be generated
-        except:
-            logging.info("(ERROR) could not run episode with the specified parameters")
-            return # do nothing
-
-        # setup agent ---
-
-        # create fresh copy of the original agent instance
-        self.agent = copy.copy(self._agent)
-
-        # setup market environment ---
-
-        # identify market instances based on market_id
-        identifier_list = set(identifier.split(".")[0] for identifier
-            in identifier_list
-        )
-        # create market_state instances
-        for market_id in identifier_list:
-            _ = MarketState(market_id)
-            print(_.instances)
-
-        # iterate over episode ---
-
-        # ...
-        for step, update_store in enumerate(episode, start=1): 
-            
-            # update global timestamp
-            self.__class__.timestamp_global = episode.timestamp
-
-            # ...
-            market_list = set(identifier.split(".")[0] for identifier in update_store)
-            source_list = list(update_store)
-            #print('market list', market_list)
-
-            # step 1: update book_state -> based on original data
-            # step 2: match standing orders -> based on pre-trade state
-            for market_id in market_list:
-                #print("MARKET ID", market_id)
-                self._market_step(market_id=market_id, 
-                    book_update=update_store.get(f"{market_id}.BOOK"),
-                    trade_update=update_store.get(f"{market_id}.TRADES", pd.Series([None] * 3)), # optional, default to empty pd.Series
-                )
-
-            # during the buffer phase, do not inform agent about update
-            if episode.episode_buffering:
-                continue
-
-            # step 3: inform agent -> based on original data
-            for source_id in source_list: 
-                self._agent_step(source_id=source_id, 
-                    either_update=update_store.get(source_id),
-                    timestamp=episode.timestamp,
-                    timestamp_next=episode.timestamp_next,
-                )
-
-            # finally, report the current state of the agent
-            if not (step % display_interval):
-                print(self.agent)
-        
-        # report result ---
-
-        # TODO: ...
-        result = None
-
-        # save report
-        self.result_list.append(result)
-
-        # reset agent ---
-
-        # ...
-        del self.agent
-
-        # reset market environment ---
-
-        # delete all MarketState instances in MarketState.instances class attribute
-        MarketState.reset_instances()
-        # delete all Order instances in Order.history class attribute
-        Order.reset_history()
-        # delete all Trade instances in Trade.history class attribute
-        Trade.reset_history()
-
-    # option 2: run multiple episodes ---
-
-    def run_episode_generator(self, 
-        identifier_list:list,
-        date_start:str="2016-01-01",
-        date_end:str="2016-03-31",
-        episode_interval:int=30, # timestamp quantization
-        episode_shuffle:bool=True,
-        episode_buffer:int=5,
-        episode_length:int=30, 
-        num_episodes:int=10,        
-    ):
-        """
-        Run agent against a series of generated episodes, that is, run a similar 
-        episode (in terms of episode_buffer and episode_length) multiple times. 
-        Call Backtest.run(...) under the hood. 
-
-        :param identifier_list:
-            list, <market_id>.BOOK/TRADES identifier for each respective data source
-        :param date_start:
-            str, start date after which episodes are generated, default is "2016-01-01"
-        :param date_end:
-            str, end date before which episodes are generated, default is "2016-03-31"
-        :param episode_interval:
-            int, ...
-        :param episode_shuffle:
-            bool, ...
-        :param episode_buffer:
-            int, ...
-        :param episode_length:
-            int, ...
-        :param num_episodes:
-            int, ...
-        """
-
-        # pd.Timestamp 
-        date_start = pd.Timestamp(date_start)
-        date_end = pd.Timestamp(date_end)
-        
-        # pd.Timedelta
-        episode_buffer = pd.Timedelta(episode_buffer, "min")
-        episode_length = pd.Timedelta(episode_length, "min")
-
-        # build episode_start_list ---
-
-        # ...
-        episode_start_list = pd.date_range(start=date_start, end=date_end + pd.Timedelta("1d"),
-            freq=f"{episode_interval}min",
-            normalize=True, # start at 00:00:00.000
-        )
-
-        # ...
-        test_list = [
-            lambda timestamp: timestamp.weekday() not in [5, 6], # sat, sun
-            lambda timestamp: datetime.time(8, 0, 0) <= timestamp.time(), # valid start
-            lambda timestamp: (timestamp + episode_length).time() <= datetime.time(16, 30, 0), # valid end
-            # ...
-        ]
-        episode_start_list = [start for start in episode_start_list 
-            if all(test(start) for test in test_list)
-        ]
-
-        # ...
-        if episode_shuffle:
-            random.shuffle(episode_start_list)
-
-        # iterate over episode_start_list ---
-
-        # ...
-        episode_counter = 0
-        episode_index = 0
-
-        # take next episode until ...
-        while episode_counter < min(len(episode_start_list), num_episodes):
-            
-            # ...
-            status = self.run(identifier_list=identifier_list,
-                episode_start_buffer=episode_start_list[episode_index],
-                episode_start=episode_start_list[episode_index] + pd.Timedelta(episode_buffer, "min"),
-                episode_end=episode_start_list[episode_index] + pd.Timedelta(episode_length, "min"),
-            )
-
-            # in either case, update index
-            episode_index = episode_index + 1
-
-            #TODO: Fix status flag
-            # update counter only if episode has been successfully run
-            #if status:
-            #episode_counter = episode_counter + 1
-
-    def run_episode_broadcast(self, 
-        identifier_list:list,
-        date_start:str="2016-01-01", 
-        date_end:str="2016-03-31", 
-        time_start_buffer:str="08:00:00",
-        time_start:str="08:10:00", 
-        time_end:str="16:30:00", 
-    ):
-        """
-        Run agent against a series of broadcast episodes, that is, run the same 
-        episode (in terms of time_start_buffer, time_start, and time_end) for 
-        each date between date_start and date_end. Uses Backtest.run(...) under 
-        the hood. 
-
-        :param identifier_list:
-            list, <market_id>.BOOK/TRADES identifier for each respective data source
-        :param date_start:
-            str, start date after which episodes are generated, default is "2016-01-01"
-        :param date_end:
-            str, end date before which episodes are generated, default is "2016-03-31"
-        :param time_start_buffer:
-            int, ...
-        :param time_start:
-            bool, ...
-        :param time_end:
-            int, ...
-        """
-
-        # pd.Timestamp
-        date_start = pd.Timestamp(date_start)
-        date_end = pd.Timestamp(date_end)
-
-        # pd.Timedelta
-        time_start_buffer = pd.Timedelta(time_start_buffer)
-        time_start = pd.Timedelta(time_start)
-        time_end = pd.Timedelta(time_end)
-
-        # build episode_date_list ---
-
-        # ...
-        episode_date_list = pd.date_range(start=date_start, end=date_end + pd.Timedelta("1d"),
-            freq="1d", 
-            normalize=True, # start at 00:00:00.000
-        )
-
-        # ...
-        test_list = [
-            lambda timestamp: timestamp.weekday() not in [5, 6], # sat, sun
-            # ...
-        ]
-        episode_date_list = [timestamp_start for timestamp_start in episode_date_list 
-            if all(test(timestamp_start) for test in test_list)
-        ]
-
-        # iterate over episode_date_list ---
-
-        # for each date + broadcast time_start_buffer, time_start, and time_end ...
-        for episode_date in episode_date_list:
-
-            # ...
-            self.run(identifier_list=identifier_list,
-                episode_start_buffer=episode_date + time_start_buffer,
-                episode_start=episode_date + time_start,
-                episode_end=episode_date + time_end,
-            )
-
-    def run_episode_list(self, 
-        identifier_list:list,
-        episode_list:list, 
-    ):
-        """
-        Run agent against a series of specified episodes, that is, work through 
-        the episode_list. Uses Backtest.run(...) under the hood. 
-
-        :param identifier_list:
-            list, <market_id>.BOOK/TRADES identifier for each respective data source
-        :param episode_list:
-            list, includes (episode_start_buffer, episode_start, episode_end) tuples
-        """
-
-        # iterate over episode_list ---
-
-        # for each episode ...
-        for episode_start_buffer, episode_start, episode_end in episode_list:
-
-            # ...
-            self.run(identifier_list=identifier_list,
-                episode_start_buffer=pd.Timestamp(episode_start_buffer), 
-                episode_start=pd.Timestamp(episode_start), 
-                episode_end=pd.Timestamp(episode_end), 
-            )
+    """

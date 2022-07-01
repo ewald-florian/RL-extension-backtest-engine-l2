@@ -1,3 +1,5 @@
+import logging
+logging.basicConfig(level=logging.CRITICAL)
 from gym_linkage.tradingenv_v10 import Replay  # wichtig: gleicher import wie bei base agent!
 from rlagent.rlagent_v2 import RLAgent
 from gym_linkage.tradingenv_v10 import TradingEnvironment, AgentHelper
@@ -18,6 +20,10 @@ env_config = {"config":{"agent":agent, "replay":replay}}
 
 env = TradingEnvironment(env_config=env_config)
 
+env.reset()
+
+"""
+
 state_dim = env.observation_space.shape[0]
 num_actions = env.action_space.n
 
@@ -30,17 +36,19 @@ reward_list_all_episodes = []
 #num_episodes = env.replay.num_episodes
 num_episodes = 3
 print('NUM EPISODES', num_episodes)
+
 for episode_counter in range(num_episodes):
     # call env.reset() -> return first observation
     last_obs = env.reset()
     # the episode lengths can vary
-    current_episode_length = env.replay.current_episode_length
+    current_episode_length = env.replay.episode.__len__()
 
     # statistics:
     action_list = []
     reward_list = []
 
-    print('NUM STEPS', current_episode_length - 1)
+    print("episode episode length: ", env.replay.episode.__len__())
+
     for step in range(current_episode_length-1):
 
         # compute action according to last_obs
@@ -80,3 +88,6 @@ for i, action_list in enumerate(action_list_all_episodes):
 print('reward means')
 for i, reward_list in enumerate(reward_list_all_episodes):
     print(np.mean(reward_list))
+
+
+"""

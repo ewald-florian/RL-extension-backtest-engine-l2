@@ -24,6 +24,7 @@ class Environment(gym.Env):
         
         # get action(t)
         # -> Agent.step() calls MarketInterface.submit() or MarketInterface.cancel() to access order pool
+        # TODO: agent receives action externally
         action = self.agent.step(observation, ...) 
 
         # -> note that observation(t) is updated in the background based on action(t-1)
@@ -51,7 +52,7 @@ class Environment(gym.Env):
 
 # mid-level ---
 
-# TODO: Q: What is the benefit when seperating agent step and market step?
+
 class Replay: # used to go by 'Backtest'
 
     def __init__(self, *args, **kwargs):
@@ -118,6 +119,12 @@ class Replay: # used to go by 'Backtest'
         # option 3: generate episode_list based on episode_manual
         self._episode_list = None
 
+#TODO: Agent has to be constructed differently / should maybe renamed in AccessPoint or so...
+# 1) It receives update_store, timestamp, timestamp_next from replay.step() and takes the _agent_step()
+# (Is this necesary when not working whith on quopte etc.?)
+# 2) It receives action externally and executes the action
+# 3) It provides trading statistics (PnL, Exposure, trade_list etc.)
+#
 class Agent:
 
     def __init__(self, model, *args, **kwargs):
@@ -170,7 +177,6 @@ class Episode:
 
 # bottom-level: market environment ---
 
-# TODO: I use the normal MarketState, Order, Trade classes from market.py
 class MarketState: 
 
     def __init__(self, *args, **kwargs):

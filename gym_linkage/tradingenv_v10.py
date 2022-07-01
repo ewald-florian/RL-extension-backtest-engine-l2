@@ -6,7 +6,7 @@ import random
 import logging
 logging.basicConfig(level=logging.CRITICAL)
 
-from env.replay import Episode
+from env.rlreplay import Episode
 from env.market import MarketState, Order, Trade
 import gym
 from gym import spaces
@@ -170,11 +170,18 @@ class Replay:
                 episode_start=episode_start,
                 episode_end=episode_end,
             )
+
+
+        #####
+        #self.episode.__iter__()
+        #####
         # return if episode could not be generated
         except:
             logging.info("(ERROR) could not run episode with the specified parameters")
+            print("No Episode was build")
             return  # do nothing
 
+        """
         # Make the episode iterable (call it "self.iterable_episode")
         self.iterable_episode = iter(self.episode)
         # TODO: This could be a bottleneck? (Should be outsourced to episode...)
@@ -193,6 +200,7 @@ class Replay:
         # print (note that this actually prints the "next" episode...
         print('(ENV) EPISODE COUNTER:', self.episode_counter)
         #todo: return first observation to env
+        """
 
     def _reset_market(self):
         # reset market instances
