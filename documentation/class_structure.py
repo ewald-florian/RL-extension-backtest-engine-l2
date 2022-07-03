@@ -9,10 +9,6 @@ class Environment(gym.Env):
 
     def __init__(self, replay, agent, *args, **kwargs):
 
-        #TODO: Question: but agent needs to be instantiate inside replay so that replay can use _agent_step???
-        # So my approach would be to instantiate agent in replay and use replay as entry for TradingEnv.
-        # Could I also instantiate agent in TradingEnv and pass it to replay (I guess so..)?
-
         self.replay = replay # TODO: replay should be instantiated with mode episode_generator, episode_broadcast, or episode_list
         self.agent = agent # TODO: 
 
@@ -119,7 +115,7 @@ class Replay: # used to go by 'Backtest'
         # option 3: generate episode_list based on episode_manual
         self._episode_list = None
 
-#TODO: Agent has to be constructed differently / should maybe renamed in AccessPoint or so...
+#TODO: Agent has to be constructed differently / should maybe renamed in AccessInterface or so...
 # 1) It receives update_store, timestamp, timestamp_next from replay.step() and takes the _agent_step()
 # (Is this necesary when not working whith on quopte etc.?)
 # 2) It receives action externally and executes the action
@@ -153,7 +149,6 @@ class Agent:
 
 # bottom-level: episode ---
 
-# TODO: I would import the normal Episode class without any changes..?
 class Episode:
     """
     Episode is a generator that ...
