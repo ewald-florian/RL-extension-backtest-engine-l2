@@ -200,13 +200,7 @@ class Replay:
             print("No Episode was build")
             return  # do nothing
 
-        #TODO: Build __next__ and step counter directly in Episode class
-        # Make the episode iterable (call it "self.iterable_episode")
-        self.iterable_episode = iter(self.episode)
-        # TODO: This could be a bottleneck? (Should be outsourced to episode...)
-        # set step_counter to 0 (for new episode)
-        self.step_counter = 0
-        # set done flag to false (will be set true in Simulator)
+        # set done flag to false (will be set true in Replay)
         # if step > max_steps
         self.done = False
         # Adds 1 to episode_counter after each Episode
@@ -216,9 +210,6 @@ class Replay:
         self.episode_index += 1
         # print (note that this actually prints the "next" episode...
         print('(ENV) EPISODE COUNTER:', self.episode_counter)
-        #todo: return first observation to env
-
-
 
     def _reset_market(self):
         # reset market instances
@@ -236,8 +227,6 @@ class Replay:
         for market_id in identifier_list:
             _ = MarketState(market_id)
 
-######### Formerly TradingSimulator class ########
-
     def _market_step(self, market_id, book_update, trade_update):
         """
         Update post-trade market state and match standing orders against
@@ -251,38 +240,31 @@ class Replay:
         # match standing agent orders against pre-trade state
         MarketState.instances[market_id].match()
 
-    # TODO: __len__ für episode
-    # TODO: episode_steps innerhalb von der episode counten
-    # TODO: Episode.length, episode.step (done-flag einbauen)
     def step(self):
 
         # note: replay data is responsible for step counting
-        self.step_counter += 1
+        #self.step_counter += 1
         # note: replay is responsible for done flag
-        if self.step_counter >= self.episode.__len__():
+        #if self.step_counter >= self.episode.__len__():
+        #    self.done = True
+         #   print('(ENV) DONE')
+
+        # use episode.step and episode.__len__ to manage done flag:
+        if self.episode.step >= self.episode.__len__()-1:
             self.done = True
             print('(ENV) DONE')
 
-        # TODO: ich brauche das statement eigentlich nicht, da ich den externen loop benutze
         # include try-except statement:
         try:
 
-            # self.iterable_episode is the iter object of self.episode
-            # self.iterable_episode is assigned in reset_before_run()
-            # -> self.iterable_episode = iter(self.episode)
-            update_store = next(self.iterable_episode)
+            # call episode.__next__() to get next data update
+            update_store = self.episode.__next__()
             # update global timestamp
             self.__class__.timestamp_global = self.episode.timestamp
 
             # Update MarketState
             market_list = set(identifier.split(".")[0] for identifier in update_store)
             source_list = list(update_store)
-
-            # OBSERVATION
-            #TODO: Include MarketContext class
-            #TODO: it would be more intuitively to update the market first and then get
-            # the infos directly from MarketState instead of getting them from the update dict..?
-            # MARKET OBSERVATION (needed for predict_action())
 
             # e.g. 'Adidas.BOOK', second would be sometimes 'Adidas.TRADES'
             source_id = source_list[0]
@@ -300,6 +282,7 @@ class Replay:
                                   # optional, default to empty pd.Series
                                   )
 
+            # TODO: Include context class for observation
             # NEW (MARKET) OBSERVATION
             obs = self.market_obs.copy()
             #return obs
