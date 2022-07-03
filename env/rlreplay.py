@@ -65,10 +65,12 @@ class Episode:
             max_deviation_tol=300, # in seconds
         ) 
 
-        # dynamically set attributes (on per-update basis)
-        self._episode_buffering = None
+        # set buffering to true when initializing the episode
+        # buffering will be set False in __next__() method
+        self._episode_buffering = True
 
         # reset step counter to 0
+        # steps are counted in the __next__() method
         self.step = 0
 
     # static attributes ---
@@ -360,58 +362,19 @@ class Episode:
 
         return data_monitor
 
-    # TODO:
-    def _make_episode_iterable(self):
-        """
-        Create iterable objects of data_monitor and data_store which can
-        be used for the __next__method.
-        :return: _data_monitor_iter
-            ...
-        :return: _data_store_iter
-            ...
-        """
-        self._data_monitor_iter = iter(self._data_monitor)
-        self._data_store_iter = iter(self._data_store)
-
-    # iteration ---
-    """
-    def __iter__(self):
-        ''' Returns the Iterator object '''
-        return EpisodeIterator(self)
-    """
-    """
-    def __next__(self):
-        # return, that is, disallow iteration if no episode has been set
-
-        self.step = self.step + 1
-
-        if not self._episode_available:
-            return
-
-        self._timestamp = self._data_monitor_iter.__next()
-
-        # TODO: I can use this after I implement a step counter...
-        self._timestamp_next = self._data_monitor.iloc[min(
-            self.step + 1, len(self._data_monitor.index) - 1
-        ), 0]
-
-
-        self._data_store_iter.__next__()
-
-        # count the step
-        self.step = self.step + 1
-    """
-
-
-
-
-    #todo: should return the length of the current episode
     def __len__(self):
-        return len(self._data_monitor)
+        '''
+        Returns length of the current episode, relevant for training loops
+        over episodes and the done-flag of the RL environment.
+        :return: current_episode_length
+            int, length of episode
+        '''
+        current_episode_length = len(self._data_monitor)
+
+        return current_episode_length
+
 
     #original __iter__ method:
-
-
     def __iter__(self):
         '''
         Iterate over the set episode. 
@@ -505,3 +468,74 @@ class Episode:
             step=step,
             time_per_step=time_per_step,
         ))
+
+    def __next__(self):
+        '''
+        Returns next book or trade update and counts step.
+        :return update
+            dict, contains identifier list and data updates.
+        '''
+
+        # return, that is, disallow iteration if no episode has been set
+        if not self._episode_available:
+            return
+
+        # extract timestamp and *monitor_state from self._data_monitor
+        # monitor state is a list of length 2 with booleans
+        timestamp, *monitor_state = self._data_monitor.loc[self.step]
+
+        # update timestamps ---
+
+        # track this timestamp
+        self._timestamp = self._data_monitor.iloc[self.step, 0]
+
+        # track next timestamp, prevent IndexError that would arise with the last step
+        self._timestamp_next = self._data_monitor.iloc[min(
+            self.step + 1, len(self._data_monitor.index) - 1
+        ), 0]
+
+        # display progress ---
+
+        # ...
+        progress = timestamp.value / (self._episode_end.value - self._episode_start_buffer.value)
+        eta = (time.time() - time_start) / progress
+
+        # info
+        logging.info("(INFO) step {step}, progress {progress}, eta {eta}".format(
+            step=step,
+            progress=progress,
+           eta=eta,
+        ))
+
+        # handle buffer phase ---
+
+
+        # _episode_buffering will be set to false as soon as timestamp > _episode_start
+        self._episode_buffering = timestamp < self._episode_start
+
+        # find data ---
+
+        # get identifier (column name) per updated source (based on self._data_monitor)
+        identifier_list = (self._data_monitor
+                           .iloc[:, 1:]
+                           .columns[monitor_state]
+                           .values
+                           )
+
+        # get data per updated source (based on self._data_store)
+        data_list = [self._data_store[identifier].iloc[self.step, :]
+                     for identifier in identifier_list
+                     ]
+
+        # return data ---
+
+        # return update via dictionary
+        update = dict(zip(identifier_list, data_list))  # {<identifier>: <data>, *}
+
+        # count the step
+        self.step = self.step + 1
+        # return update
+        return update
+
+
+

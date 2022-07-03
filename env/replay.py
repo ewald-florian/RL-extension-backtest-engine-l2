@@ -351,6 +351,9 @@ class Episode:
     def __next__(self):
         pass
 
+    def __len__(self):
+        return len(self._data_monitor)
+
     def __iter__(self):
         """
         Iterate over the set episode. 

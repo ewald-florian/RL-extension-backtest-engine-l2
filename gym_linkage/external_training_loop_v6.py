@@ -2,7 +2,7 @@ import logging
 logging.basicConfig(level=logging.CRITICAL)
 from gym_linkage.tradingenv_v10 import Replay  # wichtig: gleicher import wie bei base agent!
 from rlagent.rlagent_v2 import RLAgent
-from gym_linkage.tradingenv_v10 import TradingEnvironment, AgentHelper
+from gym_linkage.tradingenv_v10 import TradingEnvironment, AgentInterface
 from model.ddqn import DDQNModel
 import os
 import numpy as np
@@ -12,7 +12,7 @@ sub_agent = RLAgent(
     name="RLAgent",
     quantity=100)
 
-agent = AgentHelper(sub_agent)
+agent = AgentInterface(sub_agent)
 
 replay = Replay()
 
@@ -86,4 +86,5 @@ for i, action_list in enumerate(action_list_all_episodes):
 print('reward means')
 for i, reward_list in enumerate(reward_list_all_episodes):
     print(np.mean(reward_list))
+    
 

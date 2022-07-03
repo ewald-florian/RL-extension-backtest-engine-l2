@@ -41,7 +41,7 @@ class TradingEnvironment(gym.Env):
         :return: info
             dict, contains further info on the environment
         """
-        assert self.action_space.contains(action), '{} {} invalid'.format(action, type(action))
+        assert self.action_space.contains(action), "Invalid Action"
         # 1) take action
         self.agent.take_action(action=action)
         # 2) call replay.step()
@@ -177,7 +177,7 @@ class Replay:
     # former reset_before_run()
     def _build_new_episode(self):
         """
-        Resets market and builds next Episode.
+        Builds next Episode.
         """
 
         # Note: episode index is set to 0 in generate_episode_list and then 1 is added after every episode
@@ -217,6 +217,7 @@ class Replay:
         # print (note that this actually prints the "next" episode...
         print('(ENV) EPISODE COUNTER:', self.episode_counter)
         #todo: return first observation to env
+
 
 
     def _reset_market(self):
@@ -311,7 +312,7 @@ class Replay:
 
 
 # TODO: Agent komplett selbstständig machen...
-class AgentHelper:
+class AgentInterface:
 
     def __init__(self, agent):
 
@@ -323,6 +324,7 @@ class AgentHelper:
         self.steps = 0
         self.display_interval = 100
 
+    # #TODO: on quote, on trade, on time brauche ich nicht mehr
     # formerly _agent_step()
     def _inform_agent(self, source_id, either_update, timestamp, timestamp_next):
         """
