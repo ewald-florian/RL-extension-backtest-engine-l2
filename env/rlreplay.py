@@ -494,19 +494,6 @@ class Episode:
             self.step + 1, len(self._data_monitor.index) - 1
         ), 0]
 
-        # display progress ---
-
-        # ...
-        progress = timestamp.value / (self._episode_end.value - self._episode_start_buffer.value)
-        eta = (time.time() - time_start) / progress
-
-        # info
-        logging.info("(INFO) step {step}, progress {progress}, eta {eta}".format(
-            step=step,
-            progress=progress,
-           eta=eta,
-        ))
-
         # handle buffer phase ---
 
 
