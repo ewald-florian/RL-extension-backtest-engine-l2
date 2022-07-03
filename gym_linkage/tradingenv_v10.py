@@ -17,11 +17,17 @@ class TradingEnvironment(gym.Env):
     metadata = {'render.modes': ['human']}
 
     def __init__(self, env_config:dict):
-
+        """
+        Trading environment for reinforcement learning,
+        follows the openAI gym structure.
+        :param env_config
+                dict, contains configuration variables
+        """
         self.replay = env_config.get("config").get("replay")
         self.agent = env_config.get("config").get("agent")
 
         self.action_space = spaces.Discrete(3)
+        # TODO
         self.observation_space = spaces.Box(np.zeros(40), np.array([10_000]*40))
 
     def step(self, action):
@@ -39,7 +45,7 @@ class TradingEnvironment(gym.Env):
         :return: done
             bool, True if episode is complete, False otherwise
         :return: info
-            dict, contains further info on the environment
+            dict, contains further info on the environment, can be empty
         """
         assert self.action_space.contains(action), "Invalid Action"
         # 1) take action
@@ -66,7 +72,8 @@ class TradingEnvironment(gym.Env):
         observation of the environment corresponding to the initial state.
         Has to be called to start a new episode.
         :return: first_obs
-            np.array, (format depends on observation space)
+            np.array, first observation of the new episode
+            (format depends on observation space)
         """
         self.replay.reset()
         self.agent.reset()
@@ -104,7 +111,7 @@ class Replay:
         if config_dict:
             config.update(config_dict)
 
-        #todo: .get()
+        # todo: .get()
         # get parameters form config dict
         self.identifier_list = config["identifier_list"]
         self.date_start = config["date_start"]
@@ -166,7 +173,6 @@ class Replay:
         # no matter if it is internal or external (and it cannot be done in reset_before_run)
         self.episode_counter = 0
         #TODO: episode_index if Bedingung (nur wenn Episode erfolgreich gebaut werden konnte...)
-        # in reset before run?
         self.episode_index = 0
 
     def reset(self):
@@ -294,7 +300,7 @@ class Replay:
             print("Iteration exhausted")
 
 
-# TODO: Agent komplett selbstständig machen...
+# TODO: Implement proper solution of agent/agent interface...
 class AgentInterface:
 
     def __init__(self, agent):
