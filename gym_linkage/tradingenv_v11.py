@@ -1,3 +1,5 @@
+# _v11: add context to replay
+
 import numpy as np
 import pandas as pd
 import datetime
@@ -8,7 +10,7 @@ logging.basicConfig(level=logging.CRITICAL)
 
 from env.rlreplay import Episode
 from env.market import MarketState, Order, Trade
-from context.context import MarketContext
+from context.context import MarketContext, ObservationSpace
 import gym
 from gym import spaces
 
@@ -53,19 +55,21 @@ class TradingEnvironment(gym.Env):
         self.agent.take_action(action=action)
         # 2) call replay.step()
         # return update_store, timestamp, timestamp_next for agent.step()
-        update_store, timestamp, timestamp_next = self.replay.step()
+        # return market_obs
+        market_obs, update_store, timestamp, timestamp_next = self.replay.step()
+        #print(market_obs)
         # 3) call agent.step()
         self.agent.step(update_store, timestamp, timestamp_next)
         # 4) returns:
         # obs
-        obs = self.replay.market_obs.copy()
+        #obs = self.replay.market_obs.copy()
         # reward
         reward = self.agent.agent.market_interface.pnl_realized_total
         # done
         done = self.replay.done
         # info
         info = {}
-        return obs, reward, done, info
+        return market_obs, reward, done, info
 
     def reset(self):
         """
@@ -97,17 +101,20 @@ class Replay:
         self.result_list = []
         self.display_interval = 10
 
+        self.market_ctx = MarketContext()
+        self.observation_space = ObservationSpace()
+
 
         # default configuration for simulation
         config = {"identifier_list":
                             ["Adidas.BOOK", "Adidas.TRADES"],
                                "date_start": "2021-01-04",
-                               "date_end": "2021-01-08",
+                               "date_end": "2021-01-20",
                                "episode_interval": 5,
                                "episode_shuffle": True,
                                "episode_buffer": 5,
                                "episode_length": 10,
-                               "num_episodes": 10
+                               "num_episodes": 20
                                }
         # update config whith custom configuration
         if config_dict:
@@ -289,6 +296,20 @@ class Replay:
                                   trade_update=update_store.get(f"{market_id}.TRADES", pd.Series([None] * 3)),
                                   # optional, default to empty pd.Series
                                   )
+            ##### Experiment with MarketContext #######
+            self.market_ctx.store_market_context(market_obs)
+            #print("LEN MARKET CONTEXT:", len(self.market_ctx.market_context))
+            #print("TYPE CONTEXT:", type(self.market_ctx.market_context))
+            #print("MARKET CONTEXT:")
+            #print(self.market_ctx.market_context)
+
+            market_observation = self.observation_space.create_market_observation(self.market_ctx.market_context)
+            #print("MARKET OBSERVATION")
+            #print(market_observation)
+
+
+            ###########################################
+
 
             # TODO: Include context class for observation
             # NEW (MARKET) OBSERVATION
@@ -296,7 +317,7 @@ class Replay:
             #return obs
 
             # update store is necessary input for agent.step()
-            return update_store, self.episode.timestamp, self.episode.timestamp_next
+            return market_observation, update_store, self.episode.timestamp, self.episode.timestamp_next
 
         except StopIteration:
             print("Iteration exhausted")

@@ -81,7 +81,8 @@ class MarketContext():
         Store the last n_market_states into the market_context
         array.
         """
-        market_state = np.array(book_state[1:], dtype='float64')
+        #market_state = np.array(book_state[1:], dtype='float64')
+        market_state = np.array(book_state, dtype='float64')
         self.market_state_list.append(market_state)
         self.market_state_list = self.market_state_list[-self.n_states:]
         self.market_context = np.array(self.market_state_list, dtype='float64')
@@ -105,22 +106,53 @@ class MarketContext():
         self.market_state_list = []
         self.market_state = np.array([])
 
-#TODO: Implement ObservationFilter
-class ObservationFilter(): # Space
+class ObservationSpace(): # Space
     """
     Take market state and agent state as input and return
     observation in a format that fits the NN model as input.
     """
     def __init__(self):
         pass
-
+    # TODO: Recheck if the stats are computed with the correct columns (especially when market_obs is somehoe changed)
     def create_market_observation(self, market_context):
         """
         Adjust market_state to a format that fits tf (2D array)
         if necessary.
         """
+        # normalization
+        # TODO: Apply proper normalization
+        market_observation = market_context.copy()
+        # 1) scale prices
+        min_price = market_context[:, ::2].min()
+        max_price = market_context[:, ::2].max()
+        scaled_prices = (market_context[:, ::2] - min_price) / (max_price - min_price)
+        # 2) scale quantities
+        min_q = market_context[:, 1::2].min()
+        max_q = market_context[:, 1::2].max()
+        scaled_quantities = (market_context[:, 1::2] - min_q) / (max_q - min_q)
+        # 3) overwrite context with scaled values
+        market_observation[:, ::2] = scaled_prices
+        market_observation[:, 1::2] = scaled_quantities
 
-        self.market_obs = market_context
+        market_observation = market_observation.astype('float32')
+
+
+        # "To make the orderbook comparable fordifferent stocks,heights are normalized by the price gap between the
+        # tenth price and the mid-price." Raja Velu p.287
+        # Problem: What if the difference is below 1?
+        # midpoint
+        midpoint = (market_context[:,0] + market_context[:,2]) / 2
+        # relative spread
+        spread = market_context[:,2] - market_context[:, 0]
+        relative_spread = spread / midpoint
+        # quote imbalance
+        # note: (best_bid_vol - best_ask_vol) / (best_bid_vol + best_ask_vol)
+        best_ask_vol = market_context[:,1]
+        best_bid_vol = market_context[:,3]
+        # TODO: can be negative --> adjust observation_space
+        quote_imbalance = (best_bid_vol - best_ask_vol) + (best_bid_vol + best_ask_vol)
+        # return only one context row for testing purposes
+        return market_observation[0]
 
     def create_agent_observation(self):
         """
