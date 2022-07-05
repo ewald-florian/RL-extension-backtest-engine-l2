@@ -11,78 +11,80 @@ import os
 import numpy as np
 import pandas as pd
 
-sub_agent = RLAgent(
-    name="RLAgent",
-    quantity=100)
+if __name__ == "__main__": 
+    
+    sub_agent = RLAgent(
+        name="RLAgent",
+        quantity=100)
 
-agent = AgentInterface(sub_agent)
+    agent = AgentInterface(sub_agent)
 
-replay = Replay()
+    replay = Replay()
 
-env_config = {"config": {"agent": agent, "replay": replay}}
+    env_config = {"config": {"agent": agent, "replay": replay}}
 
-env = TradingEnvironment(env_config=env_config)
+    env = TradingEnvironment(env_config=env_config)
 
-state_dim = env.observation_space.shape[0]
-num_actions = env.action_space.n
+    state_dim = env.observation_space.shape[0]
+    num_actions = env.action_space.n
 
-ddqn = DDQNModel(state_dim=state_dim, num_actions=num_actions)
-ddqn.online_network.summary()
+    ddqn = DDQNModel(state_dim=state_dim, num_actions=num_actions)
+    ddqn.online_network.summary()
 
-action_list_all_episodes = []
-reward_list_all_episodes = []
+    action_list_all_episodes = []
+    reward_list_all_episodes = []
 
-num_episodes = env.replay.num_episodes
-#num_episodes = 1
-print('NUM EPISODES', num_episodes)
+    num_episodes = env.replay.num_episodes
+    #num_episodes = 1
+    print('NUM EPISODES', num_episodes)
 
-for episode_counter in range(num_episodes):
-    # call env.reset() -> return first observation
-    last_obs = env.reset()
+    for episode_counter in range(num_episodes):
+        # call env.reset() -> return first observation
+        last_obs = env.reset()
 
-    # statistics:
-    action_list = []
-    reward_list = []
+        # statistics:
+        action_list = []
+        reward_list = []
 
-    while not env.replay.done:
-    #for i in range(10):
+        while not env.replay.done:
+        #for i in range(10):
 
-        # compute action according to last_obs
-        action = ddqn.epsilon_greedy_policy(last_obs.reshape(-1, state_dim))
+            # compute action according to last_obs
+            action = ddqn.epsilon_greedy_policy(last_obs.reshape(-1, state_dim))
 
-        # env.step(action)  according to action
-        new_obs, reward, done, info = env.step(action=action)
+            # env.step(action)  according to action
+            new_obs, reward, done, info = env.step(action=action)
 
-        # store variables to ddqn memory
-        ddqn.memorize_transition(last_obs, action, reward, new_obs, int(done))
+            # store variables to ddqn memory
+            ddqn.memorize_transition(last_obs, action, reward, new_obs, int(done))
 
-        # train model
-        if ddqn.train:
-            ddqn.experience_replay()
-        if done:
-            break
+            # train model
+            if ddqn.train:
+                ddqn.experience_replay()
+            if done:
+                break
 
-        # store new_obs as last_obs for the next iteration
-        last_obs = new_obs
+            # store new_obs as last_obs for the next iteration
+            last_obs = new_obs
 
-        # step results
+            # step results
 
-        reward_list.append(reward)
-        action_list.append(int(action))
+            reward_list.append(reward)
+            action_list.append(int(action))
 
-    # episode results
-    action_list_all_episodes.append(action_list)
-    reward_list_all_episodes.append(reward_list)
+        # episode results
+        action_list_all_episodes.append(action_list)
+        reward_list_all_episodes.append(reward_list)
 
-#os.system('say "Training Loop over all Episodes is completed"')
+    #os.system('say "Training Loop over all Episodes is completed"')
 
-# stats
-print('action means')
-for i, action_list in enumerate(action_list_all_episodes):
-    print(np.mean(action_list))
+    # stats
+    print('action means')
+    for i, action_list in enumerate(action_list_all_episodes):
+        print(np.mean(action_list))
 
-print('reward means')
-for i, reward_list in enumerate(reward_list_all_episodes):
-    print(np.mean(reward_list))
+    print('reward means')
+    for i, reward_list in enumerate(reward_list_all_episodes):
+        print(np.mean(reward_list))
 
 
