@@ -6,7 +6,7 @@ Identical to env.agent.py but uses TradingEnvironment instead of Backtest.
 from env.market import MarketState, Order, Trade
 #from gym_linkage.tradingenv_v8 import MarketState, Order, Trade
 #from gym_linkage.tradingenv_v10 import TradingSimulator#, MarketState, Order, Trade
-from gym_linkage.tradingenv_v11 import Replay
+from gym_linkage.tradingenv_v12 import Replay
 # general imports
 import abc
 import pandas as pd

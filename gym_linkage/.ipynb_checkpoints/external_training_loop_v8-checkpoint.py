@@ -3,9 +3,9 @@
 import logging
 
 logging.basicConfig(level=logging.CRITICAL)
- # wichtig: gleicher import wie bei base agent!
-#from rlagent.rlagent_v2 import RLAgent
-from gym_linkage.tradingenv_v12 import TradingEnvironment, AgentInterface, Replay
+from gym_linkage.tradingenv_v11 import Replay  # wichtig: gleicher import wie bei base agent!
+from rlagent.rlagent_v2 import RLAgent
+from gym_linkage.tradingenv_v11 import TradingEnvironment, AgentInterface
 from model.ddqn import DDQNModel
 import os
 import numpy as np
@@ -13,16 +13,15 @@ import pandas as pd
 
 if __name__ == "__main__": 
     
-    #sub_agent = RLAgent(
-    #    name="RLAgent",
-    #    quantity=100)
+    sub_agent = RLAgent(
+        name="RLAgent",
+        quantity=100)
 
-    #agent = AgentInterface(sub_agent)
+    agent = AgentInterface(sub_agent)
 
     replay = Replay()
 
-    #env_config = {"config": {"agent": agent, "replay": replay}}
-    env_config = {"config": {"replay": replay}}
+    env_config = {"config": {"agent": agent, "replay": replay}}
 
     env = TradingEnvironment(env_config=env_config)
 
@@ -39,7 +38,6 @@ if __name__ == "__main__":
     #num_episodes = 1
     print('NUM EPISODES', num_episodes)
 
-    # while env.replay.episode_index < num_episodes:
     for episode_counter in range(num_episodes):
         # call env.reset() -> return first observation
         last_obs = env.reset()
@@ -53,7 +51,6 @@ if __name__ == "__main__":
 
             # compute action according to last_obs
             action = ddqn.epsilon_greedy_policy(last_obs.reshape(-1, state_dim))
-            print(action)
 
             # env.step(action)  according to action
             new_obs, reward, done, info = env.step(action=action)

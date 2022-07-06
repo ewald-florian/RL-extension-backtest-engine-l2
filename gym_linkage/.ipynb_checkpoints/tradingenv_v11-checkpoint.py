@@ -30,7 +30,7 @@ class TradingEnvironment(gym.Env):
         self.agent = env_config.get("config").get("agent")
 
         self.action_space = spaces.Discrete(3)
-        # TODO:
+        # TODO
         self.observation_space = spaces.Box(np.zeros(40), np.array([10_000]*40))
 
     def step(self, action):

@@ -168,7 +168,7 @@ class MarketState:
         continuously with every update. 
 
         (Pre-trade state) Use trade_update (optional) to eliminate the 
-        incluence that one or multiple trades have on the post-trade state. 
+        influence that one or multiple trades have on the post-trade state.
         The pre-trade state is used to match simulated orders against. 
 
         Main methods are ...
