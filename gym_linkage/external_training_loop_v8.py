@@ -53,7 +53,7 @@ if __name__ == "__main__":
 
             # compute action according to last_obs
             action = ddqn.epsilon_greedy_policy(last_obs.reshape(-1, state_dim))
-            print(action)
+            #print(action)
 
             # env.step(action)  according to action
             new_obs, reward, done, info = env.step(action=action)

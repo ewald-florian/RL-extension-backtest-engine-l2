@@ -58,19 +58,9 @@ class TradingEnvironment(gym.Env):
         # self.agent.take_action(action=action)
         self.agent_interface.take_action(action=action)
         # 2) call replay.step()
-        # return update_store, timestamp, timestamp_next for agent.step()
-        # return market_obs
-        market_obs, update_store, timestamp, timestamp_next = self.replay.step()
-        #print(market_obs)
-        # 3) call agent.step()
-        #self.agent.step(update_store, timestamp, timestamp_next)
+        #reward, market_obs, update_store, timestamp, timestamp_next = self.replay.step()
+        reward, market_obs = self.replay.step()
         # 4) returns:
-        # obs
-        #obs = self.replay.market_obs.copy()
-        # reward
-        #reward = self.agent.agent.market_interface.pnl_realized_total
-        #reward = self.agent_interface.market_interface.pnl_realized_total
-        reward = np.random.randint(10)
         # done
         done = self.replay.done
         # info
@@ -91,7 +81,8 @@ class TradingEnvironment(gym.Env):
         self.replay.step()
         print("..reset for new episode")
         # return first observation
-        first_obs = self.replay.market_obs.copy()
+        # todo: first_obs should be returned from replay.reset()...
+        first_obs = self.replay.market_state.copy()
         return first_obs
 
     def render(self):
@@ -107,6 +98,8 @@ class Replay:
         self.result_list = []
         self.display_interval = 10
 
+        # TODO: should MarketContext be independent of replay?
+        # instantiate market_context
         self.market_ctx = MarketContext()
         self.observation_space = ObservationSpace()
 
@@ -149,6 +142,8 @@ class Replay:
 
         #TODO: can I avoid this cross dependency?
         self.stats = TradingStatistics()
+        #TODO: Should reward be independent instance?
+        self.reward = Reward()
 
     def _generate_episode_start_list(self):
         """
@@ -293,10 +288,10 @@ class Replay:
 
             # e.g. 'Adidas.BOOK', second would be sometimes 'Adidas.TRADES'
             source_id = source_list[0]
-            # save book as array without timestamp and labels
-            market_obs = update_store.get(source_id).array[1:]
+            # save book as array without timestamps and labels
+            market_state = update_store.get(source_id).array[1:]
             # convert to float (for model)
-            self.market_obs = market_obs.astype('float32')
+            self.market_state = market_state.astype('float32')
 
             # update market
             for market_id in market_list:
@@ -306,28 +301,27 @@ class Replay:
                                   trade_update=update_store.get(f"{market_id}.TRADES", pd.Series([None] * 3)),
                                   # optional, default to empty pd.Series
                                   )
-            ##### Experiment with MarketContext #######
+            # MARKET CONTEXT
+            #TODO: should I let the agent wait for the first n
+            # episodes until market_context is complete?
 
-            self.market_ctx.store_market_context(market_obs)
-            #print("LEN MARKET CONTEXT:", len(self.market_ctx.market_context))
-            #print("TYPE CONTEXT:", type(self.market_ctx.market_context))
-            #print("MARKET CONTEXT:")
+            # store market_state in to market_context
+            self.market_ctx.store_market_context(market_state)
+            #print('MARKET CONTEXT')
+            #print('MC Length', len(self.market_ctx.market_context))
             #print(self.market_ctx.market_context)
 
+            # MARKET OBSERVATION
             market_observation = self.observation_space.create_market_observation(self.market_ctx.market_context)
             #print("MARKET OBSERVATION")
             #print(market_observation)
 
-            ###########################################
+            # REWARD
+            reward = self.reward.compute_reward()
+            #print('REWARD: ', reward)
 
-
-            # TODO: Include context class for observation
-            # NEW (MARKET) OBSERVATION
-            obs = self.market_obs.copy()
-            #return obs
-
-            # update store is necessary input for agent.step()
-            return market_observation, update_store, self.episode.timestamp, self.episode.timestamp_next
+            #return reward, market_observation, update_store, self.episode.timestamp, self.episode.timestamp_next
+            return reward, market_observation
 
         except StopIteration:
             print("Iteration exhausted")
@@ -749,4 +743,296 @@ class TradingStatistics: # basically the second part of MarketInterface
         self.__init__(self.display_interval,
                      self.exposure_limit,
                      self.latency,
+                     self.transaction_cost_factor)
+
+class Reward:
+
+    def __init__(self,
+                 # TODO: avoid double assigning of latency in interface and stats...
+                 latency: int = 10,
+                 transaction_cost_factor: float = 1e-3,  # 10 bps
+                 ):
+
+        # containers for related class instances
+        self.market_state_list = MarketState.instances
+        self.order_list = Order.history
+        self.trade_list = Trade.history
+
+        # settings
+        self.transaction_cost_factor = transaction_cost_factor  # in bps
+        self.latency = latency
+
+    def compute_reward(self):
+        """
+        Compute the reward according to individual reward function.
+        :return: reward
+            float, reward for RL environment
+        """
+        # for testing: just use pnl_realized as reward
+        pnl_realized = self.pnl_realized()
+        key = list(pnl_realized.keys())[0]
+        reward = pnl_realized.get(key)
+        return reward
+    '''
+    def _assert_exposure(self, market_id, side, quantity, limit):
+        """
+        Assert agent exposure. Note that program execution is supposed to
+        continue.
+        """
+
+        # first, assert that market exists
+        assert market_id in self.market_state_list, \
+            "market_id '{market_id}' does not exist".format(
+                market_id=market_id,
+            )
+
+        # calculate position value for limit order
+        if limit:
+            exposure_change = quantity * limit
+        # calculate position value for market order (estimated)
+        else:
+            exposure_change = quantity * self.market_state_list[market_id].mid_point
+
+        # ...
+        exposure_test = self.exposure.copy()  # isolate changes
+        exposure_test[market_id] = self.exposure[market_id] + exposure_change * {
+            "buy": + 1, "sell": - 1,
+        }[side]
+        exposure_test_total = round(
+            sum(abs(exposure) for _, exposure in exposure_test.items()), 3
+        )
+
+        # ...
+        assert self.exposure_limit >= exposure_test_total, \
+            "{exposure_change} exceeds exposure_left ({exposure_left})".format(
+                exposure_change=exposure_change,
+                exposure_left=self.exposure_left,
+            )
+    '''
+    # filtered orders, trades ---
+
+    def get_filtered_orders(self, market_id=None, side=None, status=None):
+        """
+        Filter Order.history based on market_id, side and status.
+
+        :param market_id:
+            str, market identifier, optional
+        :param side:
+            str, either 'buy' or 'sell', optional
+        :param status:
+            str, either 'ACTIVE', 'FILLED', 'CANCELLED' or 'REJECTED', optional
+        :return orders:
+            list, filtered Order instances
+        """
+
+        orders = self.order_list
+
+        # orders must have requested market_id
+        if market_id:
+            orders = filter(lambda order: order.market_id == market_id, orders)
+        # orders must have requested side
+        if side:
+            orders = filter(lambda order: order.side == side, orders)
+        # orders must have requested status
+        if status:
+            orders = filter(lambda order: order.status == status, orders)
+
+        return list(orders)
+
+    def get_filtered_trades(self, market_id=None, side=None):
+        """
+        Filter Trade.history based on market_id and side.
+
+        :param market_id:
+            str, market identifier, optional
+        :param side:
+            str, either 'buy' or 'sell', optional
+        :return trades:
+            list, filtered Trade instances
+        """
+
+        trades = self.trade_list
+
+        # trades must have requested market_id
+        if market_id:
+            trades = filter(lambda trade: trade.market_id == market_id, trades)
+        # trades must have requested side
+        if side:
+            trades = filter(lambda trade: trade.side == side, trades)
+
+        return list(trades)
+
+    # symbol, agent statistics ---
+
+    def exposure(self, result={}):
+        """
+        Current net exposure that the agent has per market, based statically
+        on the entry value of the remaining positions.
+
+        Note that a positive and a negative value indicate a long and a short
+        position, respectively.
+
+        :return exposure:
+            dict, {<market_id>: <exposure>, *}
+        """
+
+        for market_id, _ in self.market_state_list.items():
+
+            # trades filtered per market
+            trades_buy = self.get_filtered_trades(market_id, side="buy")
+            trades_sell = self.get_filtered_trades(market_id, side="sell")
+
+            # quantity per market
+            quantity_buy = sum(t.quantity for t in trades_buy)
+            quantity_sell = sum(t.quantity for t in trades_sell)
+            quantity_unreal = quantity_buy - quantity_sell
+
+            # case 1: buy side surplus
+            if quantity_unreal > 0:
+                vwap_buy = sum(t.quantity * t.price for t in trades_buy) / quantity_buy
+                result_market = quantity_unreal * vwap_buy
+            # case 2: sell side surplus
+            elif quantity_unreal < 0:
+                vwap_sell = sum(t.quantity * t.price for t in trades_sell) / quantity_sell
+                result_market = quantity_unreal * vwap_sell
+            # case 3: all quantity is realized
+            else:
+                result_market = 0
+
+            result[market_id] = round(result_market, 3)
+
+        return result
+
+    def exposure_total(self):
+        """
+        Current net exposure that the agent has across all markets, based on
+        the net exposure that the agent has per market.
+
+        Note that we use the absolute value for both long and short positions.
+
+        :return exposure_total:
+            float, total exposure across all markets
+        """
+
+        result = sum(abs(exposure) for _, exposure in self.exposure.items())
+        result = round(result, 3)
+
+        return result
+
+    def pnl_realized(self, result={}):
+        """
+        Current realized PnL that the agent has per market.
+
+        :return pnl_realized:
+            dict, {<market_id>: <pnl_realized>, *}
+        """
+
+        for market_id, _ in self.market_state_list.items():
+
+            # trades filtered per market
+            trades_buy = self.get_filtered_trades(market_id, side="buy")
+            trades_sell = self.get_filtered_trades(market_id, side="sell")
+
+            # quantity per market
+            quantity_buy = sum(t.quantity for t in trades_buy)
+            quantity_sell = sum(t.quantity for t in trades_sell)
+            quantity_real = min(quantity_buy, quantity_sell)
+
+            # case 1: quantity_real is 0
+            if not quantity_real:
+                result_market = 0
+            # case 2: quantity_real > 0
+            else:
+                vwap_buy = sum(t.quantity * t.price for t in trades_buy) / quantity_buy
+                vwap_sell = sum(t.quantity * t.price for t in trades_sell) / quantity_sell
+                result_market = quantity_real * (vwap_sell - vwap_buy)
+
+            result[market_id] = round(result_market, 3)
+
+        return result
+
+    def pnl_realized_total(self):
+        """
+        Current realized pnl that the agent has across all markets, based on
+        the realized pnl that the agent has per market.
+
+        :return pnl_realized_total:
+            float, total realized pnl across all markets
+        """
+
+        result = sum(pnl for _, pnl in self.pnl_realized.items())
+        result = round(result, 3)
+
+        return result
+
+    def pnl_unrealized(self, result={}):
+        """
+        This method returns the unrealized PnL that the agent has per market.
+
+        :return pnl_unrealized:
+            dict, {<market_id>: <pnl_unrealized>, *}
+        """
+
+        for market_id, market in self.market_state_list.items():
+
+            # trades filtered per market
+            trades_buy = self.get_filtered_trades(market_id, side="buy")
+            trades_sell = self.get_filtered_trades(market_id, side="sell")
+
+            # quantity per market
+            quantity_buy = sum(t.quantity for t in trades_buy)
+            quantity_sell = sum(t.quantity for t in trades_sell)
+            quantity_unreal = quantity_buy - quantity_sell
+
+            # case 1: buy side surplus
+            if quantity_unreal > 0:
+                vwap_buy = sum(t.quantity * t.price for t in trades_buy) / quantity_buy
+                result_market = abs(quantity_unreal) * (market.best_bid - vwap_buy)
+            # case 2: sell side surplus
+            elif quantity_unreal < 0:
+                vwap_sell = sum(t.quantity * t.price for t in trades_sell) / quantity_sell
+                result_market = abs(quantity_unreal) * (vwap_sell - market.best_ask)
+            # case 3: all quantity is realized
+            else:
+                result_market = 0
+
+            result[market_id] = round(result_market, 3)
+
+        return result
+
+    def pnl_unrealized_total(self):
+        """
+        Current unrealized pnl that the agent has across all markets, based on
+        the unrealized pnl that the agent has per market.
+
+        :return pnl_unrealized_total:
+            float, total unrealized pnl across all markets
+        """
+
+        result = sum(pnl for _, pnl in self.pnl_unrealized.items())
+        result = round(result, 3)
+
+        return result
+
+    def transaction_cost(self):
+        """
+        Current trading cost based on trade history, accumulated throughout
+        the entire backtest.
+
+        :transaction_cost:
+            float, accumulated transaction cost
+        """
+
+        result = sum(t.price * t.quantity for t in self.trade_list)
+        result = result * self.transaction_cost_factor
+        result = round(result, 3)
+
+        return result
+
+    def reset(self):
+        """
+        Reset TradingStats to the original state.
+        Should be called before each new episode.
+        """
+        self.__init__(self.latency,
                      self.transaction_cost_factor)
