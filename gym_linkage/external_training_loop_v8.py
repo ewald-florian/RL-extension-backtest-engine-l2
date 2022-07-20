@@ -11,17 +11,10 @@ import os
 import numpy as np
 import pandas as pd
 
-if __name__ == "__main__": 
-    
-    #sub_agent = RLAgent(
-    #    name="RLAgent",
-    #    quantity=100)
-
-    #agent = AgentInterface(sub_agent)
+if __name__ == "__main__":
 
     replay = Replay()
 
-    #env_config = {"config": {"agent": agent, "replay": replay}}
     env_config = {"config": {"replay": replay}}
 
     env = TradingEnvironment(env_config=env_config)
@@ -79,7 +72,7 @@ if __name__ == "__main__":
         action_list_all_episodes.append(action_list)
         reward_list_all_episodes.append(reward_list)
 
-    #os.system('say "Training Loop over all Episodes is completed"')
+    #os.system('say "Training Loop over all Episodes complete')
 
     # stats
     print('action means')

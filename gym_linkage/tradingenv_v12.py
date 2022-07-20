@@ -1,4 +1,3 @@
-# _v12: add AgentInterface
 
 import numpy as np
 import pandas as pd
@@ -11,10 +10,9 @@ logging.basicConfig(level=logging.CRITICAL)
 
 from env.rlreplay import Episode
 from env.market import MarketState, Order, Trade
-from context.context import MarketContext, ObservationSpace
+from context.context import MarketContext, ObservationSpace, AgentContext
 import gym
 from gym import spaces
-
 
 class TradingEnvironment(gym.Env):
 
@@ -102,7 +100,7 @@ class Replay:
         # instantiate market_context
         self.market_ctx = MarketContext()
         self.observation_space = ObservationSpace()
-
+        self.agent_context = AgentContext()
 
         # default configuration for simulation
         config = {"identifier_list":
@@ -320,7 +318,14 @@ class Replay:
             reward = self.reward.compute_reward()
             #print('REWARD: ', reward)
 
-            #return reward, market_observation, update_store, self.episode.timestamp, self.episode.timestamp_next
+            # AGENT CONTEXT
+            agent_state = self.agent_context.get_agent_state()
+            print("TYPE:", type(agent_state))
+            print("AGENT STATE")
+            print(agent_state)
+
+
+
             return reward, market_observation
 
         except StopIteration:
@@ -773,42 +778,7 @@ class Reward:
         key = list(pnl_realized.keys())[0]
         reward = pnl_realized.get(key)
         return reward
-    '''
-    def _assert_exposure(self, market_id, side, quantity, limit):
-        """
-        Assert agent exposure. Note that program execution is supposed to
-        continue.
-        """
 
-        # first, assert that market exists
-        assert market_id in self.market_state_list, \
-            "market_id '{market_id}' does not exist".format(
-                market_id=market_id,
-            )
-
-        # calculate position value for limit order
-        if limit:
-            exposure_change = quantity * limit
-        # calculate position value for market order (estimated)
-        else:
-            exposure_change = quantity * self.market_state_list[market_id].mid_point
-
-        # ...
-        exposure_test = self.exposure.copy()  # isolate changes
-        exposure_test[market_id] = self.exposure[market_id] + exposure_change * {
-            "buy": + 1, "sell": - 1,
-        }[side]
-        exposure_test_total = round(
-            sum(abs(exposure) for _, exposure in exposure_test.items()), 3
-        )
-
-        # ...
-        assert self.exposure_limit >= exposure_test_total, \
-            "{exposure_change} exceeds exposure_left ({exposure_left})".format(
-                exposure_change=exposure_change,
-                exposure_left=self.exposure_left,
-            )
-    '''
     # filtered orders, trades ---
 
     def get_filtered_orders(self, market_id=None, side=None, status=None):

@@ -1,69 +1,102 @@
 import numpy as np
-import pandas as pd
-from agent.agent import BaseAgent
-from env.replay import Backtest
-from sklearn.preprocessing import MinMaxScaler
-scaler = MinMaxScaler()
+from env.market import MarketState, Order, Trade
 
-#TODO: Implement AgentState (dont use base agent..., use the original methods of market interface)
-class AgentState(BaseAgent):
-    # einzelne datenstruktur mit einzelner methode, zB update oder nur datenstruktur
-    # pnl etc direkt im base agent oder in seperater metric class
+class AgentContext:
 
-    # AgentState: update einen array mit orders und trades (standing orders (ACTIVE), offener positionen
+    def __init__(self, n_states=10):
 
-    def __init__(self):
+        # containers for related class instances
+        self.n_states = n_states
+        self.market_state_list = MarketState.instances
+        self.order_list = Order.history
+        self.trade_list = Trade.history
+        self.agent_state = {}
+        self.agent_context = []
 
-        self.current_state = None # What is the best form? dict? list?
-        pass
-
-    def receive_filtered_trades(self):
+    def _get_filtered_orders(self, market_id=None, side=None, status=None):
         """
-        Get the orders.
-        :return:
+        Filter Order.history based on market_id, side and status.
+
+        :param market_id:
+            str, market identifier, optional
+        :param side:
+            str, either 'buy' or 'sell', optional
+        :param status:
+            str, either 'ACTIVE', 'FILLED', 'CANCELLED' or 'REJECTED', optional
+        :return orders:
+            list, filtered Order instances
         """
-        # trade_list = self.market_interface.get_filtered_trades(market_id, side='buy')
+        orders = self.order_list
 
-        pass
-    def receive_filtered_orders(self):
+        # orders must have requested market_id
+        if market_id:
+            orders = filter(lambda order: order.market_id == market_id, orders)
+        # orders must have requested side
+        if side:
+            orders = filter(lambda order: order.side == side, orders)
+        # orders must have requested status
+        if status:
+            orders = filter(lambda order: order.status == status, orders)
+
+        return list(orders)
+
+    def _get_filtered_trades(self, market_id=None, side=None):
         """
-        Get the trades.
+        Filter Trade.history based on market_id and side.
 
-        :return:
-        """
-        # order_list = self.market_interface.get_filtered_orders(market_id, side='buy', status=None)
-        pass
-    def current_state(self):
-        """
-        Save orders and trades in a current_agent_state variable.
-
-        :return:
+        :param market_id:
+            str, market identifier, optional
+        :param side:
+            str, either 'buy' or 'sell', optional
+        :return trades:
+            list, filtered Trade instances
         """
 
-        # self.current_state = None
-        pass
+        trades = self.trade_list
 
-#TODO: Implement AgentContext
-class AgentContext(): # keine vererbung notwendig, observer pattern?
-    """
-    Manage agent context.
-    """
+        # trades must have requested market_id
+        if market_id:
+            trades = filter(lambda trade: trade.market_id == market_id, trades)
+        # trades must have requested side
+        if side:
+            trades = filter(lambda trade: trade.side == side, trades)
 
-    def __init__(self, n_agent_states=100):
-        self.agent_state_list = []
-        self.n_states = n_agent_states
-        pass
+        return list(trades)
 
-    def store_agent_state(self):
+    # TODO: how should trades and orders be stored? only the specific market_id or the entire thing?
+    def get_agent_state(self):
+
+        for market_id, _ in self.market_state_list.items():
+            # trades filtered per market
+            trades_buy = self._get_filtered_trades(market_id, side="buy")
+            trades_sell = self._get_filtered_trades(market_id, side="sell")
+
+            orders_buy = self._get_filtered_orders(market_id, side="buy")
+            orders_sell = self._get_filtered_orders(market_id, side="sell")
+
+        # store agent_state to dictionary
+        agent_state = {"trades_buy": trades_buy,
+                       "trades_sell": trades_sell,
+                       "orders_buy": orders_buy,
+                       "orders_sell": orders_sell,
+        }
+
+        self.agent_state = agent_state
+
+        return self.agent_state
+
+    # TODO: is there even a usecase for storing several agent states?
+    def store_agent_context(self):
+
+        self.agent_context.append(self.agent_state)
+        self.agent_context = self.agent_context[-self.n_states:]
+
+
+    def reset(self):
         """
-        Store a number of agent states to a list.
-
-        :return:
+        Reset AgentContext
         """
-        #self.agent_state_list(self.current_state)
-        #self.agent_state_list = self.agent_state_list[-self.n_agent_states:]
-
-        pass
+        self.__init__()
 
 class MarketContext():
     """
