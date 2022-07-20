@@ -1,0 +1,12 @@
+Keep Track of Versions and Changes
+__________________________________
+
+
+Latest working version of TradingEnvironment (30_06_22):
+- tradingenv_v9
+-external_training_loop_v4 (trains ddqn with TradingEnv)
+- ddqn
+- replay.Episode
+- rlagent.rlagent_v2 RLAgent
+- env.market MarketState, Order, Trade
+- train_on_rllib_v0
